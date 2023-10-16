@@ -1,0 +1,22 @@
+[2023-10-13 16:14:06,754][py.warnings][WARNING] - C:\CryptoPredictions\data_loader\creator.py:27: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  df['Mean'] = (df['Low'] + df['High']) / 2
+
+[2023-10-13 16:14:17,589][py.warnings][WARNING] - C:\CryptoPredictions\data_loader\indicators.py:376: NumbaPendingDeprecationWarning: [1m[1mCode using Numba extension API maybe depending on 'old_style' error-capturing, which is deprecated and will be replaced by 'new_style' in a future release. See details at https://numba.readthedocs.io/en/latest/reference/deprecation.html#deprecation-of-old-style-numba-captured-errors
+Exception origin:
+  File "C:\CryptoPredictions\data_loader\indicators.py", line 141, in np_clip
+    for i in range(len(a)):
+[0m[0m
+  up, down = np.clip(delta, a_min=0, a_max=np.max(delta)), np.clip(delta, a_min=np.min(delta), a_max=0)
+
+[2023-10-13 16:14:21,216][py.warnings][WARNING] - C:\CryptoPredictions\data_loader\indicators.py:405: NumbaPendingDeprecationWarning: [1m[1m[1mCode using Numba extension API maybe depending on 'old_style' error-capturing, which is deprecated and will be replaced by 'new_style' in a future release. See details at https://numba.readthedocs.io/en/latest/reference/deprecation.html#deprecation-of-old-style-numba-captured-errors
+Exception origin:
+  File "C:\CryptoPredictions\data_loader\indicators.py", line 141, in np_clip
+    for i in range(len(a)):
+[0m[0m[0m
+  r = rsi(data, period, smoothing, f_sma, f_clip, f_abs)[period:]
+
+[2023-10-13 16:14:32,203][factory.trainer][INFO] - Training started.

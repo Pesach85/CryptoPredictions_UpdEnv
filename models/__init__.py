@@ -8,7 +8,6 @@ from .prophet import MyProphet
 from .xgboost import MyXGboost
 from .neural_prophet import Neural_Prophet
 
-
 MODELS = {'random_forest': RandomForest,
           'sarimax': Sarimax,
           'orbit': Orbit,

@@ -1,0 +1,3 @@
+
+               | accuracy_score|    f1_score   |  recall_score |precision_score|      MAE      |      RMSE     |      MAPE     |     SMAPE     |      MASE     |      MSLE     
+validation-0   |     0.602     |     0.597     |     0.598     |     0.595     |     64.74     |     87.37     |      3.19     |      3.14     |      1.11     |     0.002     

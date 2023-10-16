@@ -3,7 +3,7 @@ defaults:
   - train
 
 #dataframe_path: C:\Users\samen\Desktop\term9\CryptoPredictions\outputs\2023-04-24\17-35-52\backTest_dataset\
-dataframe_path: C:\Users\samen\Desktop\term9\CryptoPredictions\outputs\2023-04-24\17-35-52\backTest_dataset\
+dataframe_path: C:\CryptoPredictions\outputs\2023-10-13\15-33-19\backTest_dataset
 strategy_signal: signal1
 buy_stop_loss: 0.9
 buy_take_profit: 1.1
