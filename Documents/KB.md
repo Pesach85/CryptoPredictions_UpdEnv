@@ -100,6 +100,46 @@ Each asset directory contains:
 - Fix applied during this run: CSV loader now handles heterogeneous schemas (`timestamp`/`Date`, optional index column).
 - Plotting backend now forced to `Agg` (non-interactive) for stable CLI execution without tkinter.
 
+## 2026-04-16 Next Best Decision Run — n_estimators=500 (XBTUSD, SOLUSD, ETHUSD)
+
+### Commands
+```bash
+python meta_historical_test.py --assets XBTUSD,SOLUSD --n-estimators 500 --min-samples 100 --max-mape 4.0
+python meta_historical_test.py --assets ETHUSD --n-estimators 500 --min-samples 100 --max-mape 4.0
+```
+
+### Results (106 eval samples, 2026)
+
+| Asset  | Acc (model) | MAPE (model) | Acc (naive) | MAPE (naive) | Gate |
+|--------|-------------|--------------|-------------|--------------|------|
+| ETHUSD | 0.581       | 2.96 %       | 0.514       | 2.80 %       | PASS |
+| XBTUSD | 0.505       | 12.97 %      | 0.552       | 2.01 %       | FAIL |
+| SOLUSD | 0.562       | 5.60 %       | 0.524       | 2.94 %       | FAIL |
+
+### Finding
+Increasing n_estimators from 300 → 500 did **not** meaningfully reduce MAPE for XBT or SOL.
+- XBT MAPE remains ~13%: consistent with a price-regime shift in 2026 not captured by pre-2024 training data.
+- SOL MAPE borderline at ~5.6% vs gate 4.0%: model beats naive on direction (+3.8pp) but magnitude errors remain high.
+- Root cause for XBT is **data distribution shift**, not model capacity.
+
+### New artifacts per asset (11-07-23 and 11-36-32 run folders)
+- `price_prediction_chart.png` — **new** 2-subplot chart:
+  - Top: daily close, actual (orange) vs predicted (blue dashed), X-axis on monthly scale
+  - Bottom: weekly price fluctuation bar chart (actual Δ orange, predicted Δ blue)
+
+### Security audit (2026-04-16 session close)
+- Scanned all `.py`, YAML, and Markdown files: **no hardcoded credentials found**.
+- Bitmex loader uses env vars (`BITMEX_API_KEY`, `BITMEX_API_SECRET`); no `.env` file in repo.
+- `.gitignore` updated to explicitly exclude `.env`, `.env.*`, `*.secret`, `*.pem`, `*.key`.
+
+### Next Best Decision
+XBT regime shift requires a **shortened training window experiment**:
+```bash
+# Retrain using only 2022-2024 local data, test if recency reduces MAPE
+python meta_historical_test.py --assets XBTUSD --n-estimators 300 --min-samples 100 --max-mape 4.0
+```
+Then add rolling-window retraining (e.g., trailing 365 days) for assets with high MAPE.
+
 ## Known Risks / Debt
 - Some model dependencies (e.g., legacy deep-learning/time-series libs) may require specific Python versions.
 - Metrics can include both directional and regression objectives; interpretation should be explicit in reports.

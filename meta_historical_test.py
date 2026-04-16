@@ -6,6 +6,7 @@ from pathlib import Path
 import joblib
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -314,6 +315,88 @@ def save_accuracy_time_plot(curve_df: pd.DataFrame, out_path: Path, asset_symbol
     plt.close()
 
 
+def save_price_prediction_plot(pred_df: pd.DataFrame, out_path: Path, asset_symbol: str):
+    """
+    Two-subplot price comparison chart (simulation only — not investment advice).
+    Top   : Daily close — predicted (blue dashed) vs actual (orange), X=time on monthly scale.
+    Bottom: Weekly price fluctuation bars — actual vs predicted Δ per week.
+    """
+    df = pred_df.copy()
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values("date")
+
+    # Weekly resample — last close of each Friday.
+    df_weekly = (
+        df.set_index("date")
+        .resample("W-FRI")
+        .last()
+        .dropna(subset=["actual_close", "predicted_close"])
+        .reset_index()
+    )
+    df_weekly["actual_wk_change"] = df_weekly["actual_close"].diff()
+    df_weekly["pred_wk_change"] = df_weekly["predicted_close"].diff()
+    df_weekly = df_weekly.dropna(subset=["actual_wk_change", "pred_wk_change"])
+
+    eval_year = df["date"].dt.year.iloc[0] if not df.empty else "?"
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(13, 9), dpi=140)
+    fig.suptitle(
+        f"{asset_symbol} — Predicted vs Actual Price\n"
+        f"(Trained on past local data; evaluated on {eval_year} prices — simulation only)",
+        fontsize=11,
+        y=0.995,
+    )
+
+    # --- Top subplot: daily prices with monthly X ticks ---
+    ax1.plot(df["date"], df["actual_close"], color="#E67700", linewidth=1.8, label="Actual close")
+    ax1.plot(
+        df["date"],
+        df["predicted_close"],
+        color="#1971C2",
+        linewidth=1.5,
+        linestyle="--",
+        alpha=0.85,
+        label="Predicted close",
+    )
+    ax1.xaxis.set_major_locator(mdates.MonthLocator())
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
+    ax1.tick_params(axis="x", rotation=35)
+    ax1.set_ylabel("Price (USD)")
+    ax1.set_title("Daily close price — monthly scale")
+    ax1.legend(loc="upper left", fontsize=9)
+    ax1.grid(alpha=0.25)
+
+    # --- Bottom subplot: weekly price fluctuation bars ---
+    bar_width = pd.Timedelta(days=2)
+    ax2.bar(
+        df_weekly["date"] - pd.Timedelta(days=1.8),
+        df_weekly["actual_wk_change"],
+        width=bar_width,
+        color="#E67700",
+        alpha=0.70,
+        label="Actual weekly Δ",
+    )
+    ax2.bar(
+        df_weekly["date"] + pd.Timedelta(days=1.8),
+        df_weekly["pred_wk_change"],
+        width=bar_width,
+        color="#1971C2",
+        alpha=0.70,
+        label="Predicted weekly Δ",
+    )
+    ax2.axhline(0, color="gray", linewidth=0.8, linestyle="-")
+    ax2.xaxis.set_major_locator(mdates.MonthLocator())
+    ax2.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
+    ax2.tick_params(axis="x", rotation=35)
+    ax2.set_ylabel("Weekly price change (USD)")
+    ax2.set_title("Weekly price fluctuation — actual vs predicted")
+    ax2.legend(loc="upper left", fontsize=9)
+    ax2.grid(alpha=0.25)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.savefig(out_path)
+    plt.close()
+
+
 def walk_forward_scores(
     supervised: pd.DataFrame,
     train_end: pd.Timestamp,
@@ -437,6 +520,7 @@ def run_meta_historical_test(
         }
     )
     pred_df.to_csv(asset_dir / "current_year_predictions.csv", index=False)
+    save_price_prediction_plot(pred_df, asset_dir / "price_prediction_chart.png", asset_symbol)
 
     accuracy_curve = compute_time_accuracy_curve(pred_df, window=accuracy_window)
     accuracy_curve.to_csv(asset_dir / "accuracy_time_curve.csv", index=False)

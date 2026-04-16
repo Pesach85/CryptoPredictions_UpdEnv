@@ -19,6 +19,13 @@ outputs/
 *_backup.*
 *.bak
 
+# Environment / secrets — never commit credentials
+.env
+.env.*
+*.secret
+*.pem
+*.key
+
 # OS
 Thumbs.db
 .DS_Store
