@@ -188,6 +188,105 @@ Then add rolling-window retraining (e.g., trailing 365 days) for assets with hig
 ### Chart update (2026-04-16 session)
 - `save_price_prediction_plot()` now highlights the week of **maximum predicted-vs-actual divergence** in red on the weekly subplot, with annotation showing date and magnitude.
 
+## 2026-04-16 Dataset Audit — Senior Data Analyst Evaluation
+
+### Audit scope
+All 38 CSV files in `data/` (19 assets × 2 timeframes: `1d` + `1h`). Backup excluded.
+Automated audit script: `_dataset_audit.py` (temporary — removed post-run).
+Metrics checked: row count, span days, null/zero close %, duplicate timestamps, intraday/daily gaps, extreme daily moves (>40%), volume quality.
+
+### Summary by verdict
+
+| Grade      | Count | Assets (1d series)                                      |
+|------------|-------|---------------------------------------------------------|
+| GOOD       | 10    | XBTUSD, ETHUSD, BCHUSD, LTCUSD + hourly counterparts   |
+| ACCEPTABLE | 20    | ADAUSD, AVAXUSD, BNBUSD, DOGE, DOT, EOS, LINK, SOL, AXS, ETH-1h |
+| MARGINAL   | 7     | APE, APT, CRO, NEAR, PEPE(1d), TRX                     |
+| POOR       | 1     | **PEPEUSDT-1h** (3353 duplicate timestamps, 145 gaps)   |
+
+### Per-asset findings (1d series — primary for meta-historical model)
+
+| Asset   | Span (days) | Bars | Issues                                            | Verdict     |
+|---------|-------------|------|---------------------------------------------------|-------------|
+| XBTUSD  | 2829        | 2830 | 2 dup TS on 1h (negligible)                       | **GOOD**    |
+| ETHUSD  | 1659        | 1660 | 1h: 31 dup TS (resolvable with dedup)             | **GOOD**    |
+| BCHUSD  | 975         | 976  | 1 extreme move (historical event, expected)       | **GOOD**    |
+| LTCUSD  | 931         | 932  | —                                                 | **GOOD**    |
+| ADAUSD  | 505         | 506  | —                                                 | ACCEPTABLE  |
+| AVAXUSD | 505         | 506  | —                                                 | ACCEPTABLE  |
+| BNBUSD  | 505         | 506  | —                                                 | ACCEPTABLE  |
+| DOGEUSD | 505         | 506  | 1 extreme move                                    | ACCEPTABLE  |
+| DOTUSD  | 505         | 506  | —                                                 | ACCEPTABLE  |
+| EOSUSD  | 484         | 485  | —                                                 | ACCEPTABLE  |
+| LINKUSD | 484         | 485  | —                                                 | ACCEPTABLE  |
+| SOLUSD  | 484         | 485  | 2 extreme moves (expected — high-beta asset)      | ACCEPTABLE  |
+| AXSUSD  | 484         | 485  | 1 extreme move                                    | ACCEPTABLE  |
+| NEARUSD | 287         | 288  | Short: 287d < 365d                                | MARGINAL    |
+| APEUSD  | 154         | 155  | Short: 154d. 1h vol: 33% zero                     | MARGINAL    |
+| TRXUSD  | 154         | 155  | Short: 154d. 1h vol: 36% zero                     | MARGINAL    |
+| PEPEUSDT| 138         | 139  | Short: 138d                                       | MARGINAL    |
+| APTUSD  | 119         | 120  | Short: 119d. 2 extreme moves on new listing       | MARGINAL    |
+| CROUSD  | 95          | 96   | Very short: 95d. 1h vol: 62% zero                 | MARGINAL    |
+| PEPEUSDT-1h | 145     | 146  | 3353 dup TS, 145 hourly gaps, extreme move        | **POOR**    |
+
+### Critical observations (data analyst assessment)
+
+#### 1 — Dataset horizon cutoff: February 2023 for most assets
+All Bitmex-sourced files (everything except XBTUSD, ETH-1h, PEPE) end on **2023-02-17**.
+This means they collectively miss:
+- The March 2023 banking crisis (USDC depeg, SVB)
+- The 2023–2024 bull run (ETH 2x, BTC ATH)
+- The 2024–2026 entire market cycle
+
+**Impact on predictions:** any model trained exclusively on these 1d datasets will have learned only on a bear-to-sideways regime (Q4 2021 → Q1 2023). It will systematically underestimate prices during bull runs and overestimate during deeper drawdowns. This is the primary explanation for XBT's MAPE of 13% in the 2026 evaluation.
+
+#### 2 — XBTUSD is the most complete series (2015–2023, 2830 bars)
+XBT is the only asset with >5 years of daily history, covering 3 full market cycles. For cycle-aware experiments, XBT is the most statistically sound asset in the repo. Its current high MAPE is a regime-shift artefact, not a data quality problem.
+
+#### 3 — ETH-1h has 31 duplicate timestamps
+Minor issue. The `load_local_close_series()` loader already handles this via `keep="last"` groupby. No action needed, but a deduplication pass before training would tighten the hourly features.
+
+#### 4 — Short-series assets (APT, CRO, APE, TRX, NEAR, PEPE ≤ 365d)
+These 6 assets have **insufficient history for reliable supervised learning**:
+- A lag-30 RF model needs at least ~200 rows after warmup → APT (120d) and CRO (95d) fail this minimum.
+- A single half-year window captures only one part of the crypto cycle (in this case, early bear).
+- No seasonality or trend decomposition models (ARIMA, Prophet) will produce stable estimates.
+
+**Recommendation:** Do not use these assets in `meta_historical_test.py` without first extending the local data via API backfill.
+
+#### 5 — PEPEUSDT-1h is corrupted (POOR)
+3353 duplicate timestamps over only 145 days means ~23 duplicate rows per day on average — likely a collection bug (rows appended multiple times). The 1d file is clean (MARGINAL only for shortness). **Do not use PEPE-1h for any model training.**
+
+#### 6 — Volume data quality is inconsistent on newer/smaller assets
+- CROUSD-1h: 62.4% zero/null volume
+- NEARUSD-1h: 32.0%
+- APEUSD-1h: 33.0%
+- TRXUSD-1h: 36.3%
+
+This means volume cannot be used as a feature for these assets without imputation. For XBT, ETH, BCH, LTC: volume is clean (0–0.4% issues) and viable as a feature.
+
+#### 7 — No external features present
+All datasets are OHLCV from a single exchange (BitMEX). No on-chain data, no sentiment, no BTC dominance, no macro features (DXY, Fed rate). This is expected for an experimental repo but limits the ceiling of any trained model.
+
+### Suitability for reliable predictions
+
+| Tier | Assets | Condition |
+|------|--------|-----------|
+| **Reliable (production-grade experiment)** | XBTUSD, ETHUSD, BCHUSD, LTCUSD | ≥ 900d clean daily data; zero structural gaps |
+| **Usable with caveats** | ADAUSD, AVAXUSD, BNBUSD, DOGE, DOT, EOS, LINK, SOL, AXS | ~500d; bear-only regime; no post-2023 cycle coverage |
+| **Experimental only (treat output as illustrative)** | NEARUSD, APEUSD, TRXUSD, PEPEUSDT-1d, APTUSD, CROUSD | <365d; models will overfit; high CI |
+| **Do not use for training** | PEPEUSDT-1h | Corrupt; 3353 duplicate rows |
+
+### Required actions to improve dataset fitness
+
+1. **Extend all datasets from 2023-02-17 → 2026-04-16** via Bitmex or free API (CoinCap/CryptoCompare). Priority: ETHUSD, SOLUSD, ADAUSD.
+2. **Deduplicate ETHUSD-1h** (31 duplicates) and **delete PEPEUSDT-1h**.
+3. **Add XBT 2023–2026 data** — this is the single highest-ROI action: XBT already has 8 years of history; adding 3 years of bull/bear cycle will likely drop its MAPE from 13% to a competitive range.
+4. **Consider removing APTUSD, CROUSD** from default experiments until data is extended; their brevity creates misleading evaluation statistics.
+
+### Artefact
+Full JSON audit results saved during session at `_dataset_audit_results.json` (not committed — ephemeral analysis file).
+
 ## Known Risks / Debt
 - Some model dependencies (e.g., legacy deep-learning/time-series libs) may require specific Python versions.
 - Metrics can include both directional and regression objectives; interpretation should be explicit in reports.
