@@ -4,8 +4,8 @@ defaults:
 
 name: 'Bitmex'
 binsize: 1d
-batch_size: 750
-symbol: "XBTUSD"
+
+symbol: "ETHUSD"
 
 
 

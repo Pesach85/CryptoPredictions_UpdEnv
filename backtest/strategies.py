@@ -2,6 +2,7 @@ from backtesting import Strategy
 import pandas as pd
 import numpy as np
 
+
 class Strategies:
     def __init__(self, df):
         self.df = df
@@ -10,7 +11,7 @@ class Strategies:
         position = False
         signal = [0] * self.df.shape[0]
         for i in range(1, len(signal)):
-            if self.df['predicted_mean'][i] > self.df['Close'][i-1]:
+            if self.df['predicted_mean'][i] > self.df['Close'][i - 1]:
                 if position is False:
                     signal[i] = 2
                     position = True
@@ -29,7 +30,7 @@ class Strategies:
         for i in range(10, len(signal)):
             buy_bool = True
             for j in range(10):
-                if self.df['predicted_high'][i] < self.df['High'][i-j]:
+                if self.df['predicted_high'][i] < self.df['High'][i - j]:
                     buy_bool = False
             if buy_bool is True:
                 signal[i] = 2
@@ -70,13 +71,13 @@ class Strategies:
         signal = []
         for i in range(len(self.df)):
             if self.df['sma_30'][i] > self.df['sma_100'][i]:
-                if position == False:
+                if not position:
                     signal.append(2)
                     position = True
                 else:
                     signal.append(0)
             elif self.df['sma_30'][i] < self.df['sma_100'][i]:
-                if position == True:
+                if position:
                     signal.append(1)
                     position = False
                 else:

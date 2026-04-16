@@ -26,83 +26,99 @@ from math import fabs
 
 import numpy as np
 from numba import jit
-from numba.extending import overload
 
 
-def calculate_indicators(mean_, close_, open_, high_, low_, volume_):
+def calculate_indicators(mean_, close_, open_, high_, low_, volume_, requested=None):
     indicators = {}
 
-    indicators['close'] = close_
-    indicators['open'] = open_
-    indicators['high'] = high_
-    indicators['low'] = low_
-    indicators['volume'] = volume_
+    requested_set = set(requested) if requested is not None else set()
+    compute_all = requested is None
 
-    short_wma = wma(data=mean_, period=20)
-    indicators['short_wma'] = short_wma
-    medium_wma = wma(data=mean_, period=50)
-    indicators['wma'] = medium_wma
-    long_wma = wma(data=mean_, period=100)
-    indicators['long_wma'] = long_wma
+    def needs(name):
+        return compute_all or name in requested_set
 
-    ewma_ = ewma(data=mean_, period=15, alpha=0.97)
-    indicators['ewma'] = ewma_
-    tema_ = trix(data=mean_, period=30)
-    indicators['tema'] = tema_
-    """MacD"""
-    macd_ = macd(data=mean_, fast=12, slow=26)
-    indicators['macd'] = macd_
-    """Stoch"""
-    stoch1, stoch2 = stoch(close_, high_, low_, period_k=5, period_d=3)
-    indicators['stoch1'] = stoch1
-    indicators['stoch2'] = stoch2
-    """William %R"""
-    wpr_ = wpr(close_, high_, low_, 14)
-    indicators['wpr'] = wpr_
-    """RSI"""
-    rsi_experts = rsi(mean_, period=5)
-    indicators['rsi_experts'] = rsi_experts
-    rsi_ = rsi(mean_, period=14)
-    indicators['rsi'] = rsi_
-    srsi_ = srsi(mean_, period=14)
-    indicators['srsi'] = srsi_
-    """Bollinger Bands"""
-    _, bolinger_up, bolinger_down, _ = bollinger_bands(mean_, period=20)
-    indicators['bolinger_up'] = bolinger_up
-    indicators['bolinger_down'] = bolinger_down
-    """Keltner Channel"""
-    _, kc_up, kc_down, _ = keltner_channel(close_, open_, high_, low_, period=20)
-    indicators['kc_up'] = kc_up
-    indicators['kc_down'] = kc_down
-    """Ichimoku"""
-    tenkansen, kinjunsen, chikou, senkou_a, senkou_b = ichimoku(mean_, tenkansen=9, kinjunsen=26, senkou_b=52, shift=26)
-    indicators['tenkansen'] = tenkansen
-    indicators['kinjunsen'] = kinjunsen
-    indicators['chikou'] = chikou
-    indicators['senkou_a'] = senkou_a
-    indicators['senkou_b'] = senkou_b
-    # """Volume Profile"""
-    # vol_profile_count, vol_profile_price = volume_profile(close_, volume_)
-    """True Range"""
-    atr_ = atr(open_, high_, low_, period=14)
-    indicators['atr'] = atr_
-    """Momentum"""
-    momentum_ = momentum(mean_, period=40)
-    indicators['momentum_'] = momentum_
-    """Rate Of Change"""
-    roc_ = roc(mean_, period=12)
-    indicators['roc'] = roc_
-    """Volatility Index"""
-    vix_ = vix(close_, low_, period=30)
-    indicators['vix'] = vix_
-    # """Supertrend"""
-    # supertrend_up, supertrend_down = super_trend(close_, open_, high_, low_)
-    """Chopiness Index"""
-    chop_ = chop(close_, open_, high_, low_)
-    indicators['chop'] = chop_
-    """Center Of Gravity"""
-    cog_ = cog(mean_)
-    indicators['cog'] = cog_
+    if needs('close'):
+        indicators['close'] = close_
+    if needs('open'):
+        indicators['open'] = open_
+    if needs('high'):
+        indicators['high'] = high_
+    if needs('low'):
+        indicators['low'] = low_
+    if needs('volume'):
+        indicators['volume'] = volume_
+
+    if needs('short_wma'):
+        indicators['short_wma'] = wma(data=mean_, period=20)
+    if needs('wma'):
+        indicators['wma'] = wma(data=mean_, period=50)
+    if needs('long_wma'):
+        indicators['long_wma'] = wma(data=mean_, period=100)
+
+    if needs('ewma'):
+        indicators['ewma'] = ewma(data=mean_, period=15, alpha=0.97)
+    if needs('tema'):
+        indicators['tema'] = trix(data=mean_, period=30)
+    if needs('macd'):
+        indicators['macd'] = macd(data=mean_, fast=12, slow=26)
+
+    if needs('stoch1') or needs('stoch2'):
+        stoch1, stoch2 = stoch(close_, high_, low_, period_k=5, period_d=3)
+        if needs('stoch1'):
+            indicators['stoch1'] = stoch1
+        if needs('stoch2'):
+            indicators['stoch2'] = stoch2
+
+    if needs('wpr'):
+        indicators['wpr'] = wpr(close_, high_, low_, 14)
+    if needs('rsi_experts'):
+        indicators['rsi_experts'] = rsi(mean_, period=5)
+    if needs('rsi'):
+        indicators['rsi'] = rsi(mean_, period=14)
+    if needs('srsi'):
+        indicators['srsi'] = srsi(mean_, period=14)
+
+    if needs('bolinger_up') or needs('bolinger_down'):
+        _, bolinger_up, bolinger_down, _ = bollinger_bands(mean_, period=20)
+        if needs('bolinger_up'):
+            indicators['bolinger_up'] = bolinger_up
+        if needs('bolinger_down'):
+            indicators['bolinger_down'] = bolinger_down
+
+    if needs('kc_up') or needs('kc_down'):
+        _, kc_up, kc_down, _ = keltner_channel(close_, open_, high_, low_, period=20)
+        if needs('kc_up'):
+            indicators['kc_up'] = kc_up
+        if needs('kc_down'):
+            indicators['kc_down'] = kc_down
+
+    if needs('tenkansen') or needs('kinjunsen') or needs('chikou') or needs('senkou_a') or needs('senkou_b'):
+        tenkansen, kinjunsen, chikou, senkou_a, senkou_b = ichimoku(
+            mean_, tenkansen=9, kinjunsen=26, senkou_b=52, shift=26
+        )
+        if needs('tenkansen'):
+            indicators['tenkansen'] = tenkansen
+        if needs('kinjunsen'):
+            indicators['kinjunsen'] = kinjunsen
+        if needs('chikou'):
+            indicators['chikou'] = chikou
+        if needs('senkou_a'):
+            indicators['senkou_a'] = senkou_a
+        if needs('senkou_b'):
+            indicators['senkou_b'] = senkou_b
+
+    if needs('atr'):
+        indicators['atr'] = atr(open_, high_, low_, period=14)
+    if needs('momentum_'):
+        indicators['momentum_'] = momentum(mean_, period=40)
+    if needs('roc'):
+        indicators['roc'] = roc(mean_, period=12)
+    if needs('vix'):
+        indicators['vix'] = vix(close_, low_, period=30)
+    if needs('chop'):
+        indicators['chop'] = chop(close_, open_, high_, low_)
+    if needs('cog'):
+        indicators['cog'] = cog(mean_)
 
     return indicators
 
@@ -124,28 +140,6 @@ def add_indicators_to_dataset(indicators, indicators_names, dates, mean_):
     new_data = new_data[100:, :]
     new_dates = dates[100:]
     return new_data, new_dates
-
-
-@overload(np.clip)
-def np_clip(a, a_min, a_max, out=None):
-    """
-    Numba Overload of np.clip
-    :type a: np.ndarray
-    :type a_min: int
-    :type a_max: int
-    :type out: np.ndarray
-    :rtype: np.ndarray
-    """
-    if out is None:
-        out = np.empty_like(a)
-    for i in range(len(a)):
-        if a[i] < a_min:
-            out[i] = a_min
-        elif a[i] > a_max:
-            out[i] = a_max
-        else:
-            out[i] = a[i]
-    return out
 
 
 @jit(nopython=True)
@@ -351,7 +345,11 @@ def wpr(c_close, c_high, c_low, period):
         e = i + 1
         s = e - period
         mh = np.max(c_high[s:e])
-        out[i] = ((mh - c_close[i]) / (mh - np.min(c_low[s:e]))) * -100
+        denominator = mh - np.min(c_low[s:e])
+        if denominator == 0:
+            out[i] = 0.0
+        else:
+            out[i] = ((mh - c_close[i]) / denominator) * -100
     return out
 
 

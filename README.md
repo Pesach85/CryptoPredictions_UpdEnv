@@ -2,6 +2,12 @@
 
 CryptoPredictions is an open-source toolbox for price prediction/forecasting a sequence of prices of cryptocurrencies given an observed sequence.
 
+## Research-Only Scope
+
+This repository is intended for predictive-model experimentation and software benchmarking.
+It is not intended to provide investment advice.
+Backtesting outputs should be interpreted as simulation results only.
+
 ![Observation](https://user-images.githubusercontent.com/45646480/218426854-e6cf9f39-8424-4f56-bc89-7d618e0bb384.png)
 
 ![Prediction](https://user-images.githubusercontent.com/45646480/218425368-6761a215-04f8-43c3-96eb-d2df0468455f.png)

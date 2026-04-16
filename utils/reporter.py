@@ -30,7 +30,16 @@ class Reporter:
     def update_metric(self, metric_name, value):
         if isinstance(value, float):
             self.metrics[metric_name].update(value)
-            self.df_of_cross_validation.iloc[self.counter_cross_validation][metric_name] = value
+            row_label = self.df_of_cross_validation.index[self.counter_cross_validation]
+            self.df_of_cross_validation.loc[row_label, metric_name] = value
+
+    @staticmethod
+    def _format_metric_value(value):
+        if value is None or pd.isna(value):
+            return 'N/A'.center(15)
+        if value > 1:
+            return f"{value:.2f}".center(15)
+        return f"{value:.3f}".center(15)
 
     def add_new_row_to_data_frame(self, index_=None):
         df1 = {}
@@ -60,8 +69,7 @@ class Reporter:
         str_ = '|'.join([''.ljust(15)] + [a.center(15) for a in self.metrics.keys()])
         result += (str_ + '\n')
         for index, row in self.df_of_cross_validation.iterrows():
-            str_ = '|'.join([index.ljust(15)] + ["{:.2f}".format(a).center(15) if a > 1
-                                                     else "{:.3f}".format(a).center(15) for a in list(row)])
+            str_ = '|'.join([index.ljust(15)] + [self._format_metric_value(a) for a in list(row)])
             result += (str_ + '\n')
         logger.info(result)
 
@@ -73,8 +81,7 @@ class Reporter:
             str_ = '|'.join([''.ljust(15)] + [a.center(15) for a in self.metrics.keys()])
             result += (str_ + '\n')
             for index, row in self.df_of_cross_validation.iterrows():
-                str_ = '|'.join([index.ljust(15)] + ["{:.2f}".format(a).center(15) if a > 1
-                                                     else "{:.3f}".format(a).center(15) for a in list(row)])
+                str_ = '|'.join([index.ljust(15)] + [self._format_metric_value(a) for a in list(row)])
                 result += (str_ + '\n')
             text_file.write(result)
 

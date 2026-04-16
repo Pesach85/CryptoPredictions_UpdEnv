@@ -1,20 +1,36 @@
-from .random_forest import RandomForest
-from .sarimax import Sarimax
-from .orbit import Orbit
-from .LSTM import MyLSTM
-from .GRU import MyGRU
-from .arima import MyARIMA
-from .prophet import MyProphet
-from .xgboost import MyXGboost
-from .neural_prophet import Neural_Prophet
+from importlib import import_module
 
-MODELS = {'random_forest': RandomForest,
-          'sarimax': Sarimax,
-          'orbit': Orbit,
-          'lstm': MyLSTM,
-          'gru': MyGRU,
-          'arima': MyARIMA,
-          'prophet': MyProphet,
-          'xgboost': MyXGboost,
-          'neural_prophet': Neural_Prophet
-          }
+
+class _LazyModelRegistry(dict):
+    def __getitem__(self, key):
+        if key not in self:
+            raise KeyError(f"Model '{key}' is not registered.")
+
+        value = super().__getitem__(key)
+        if isinstance(value, tuple):
+            module_name, class_name = value
+            try:
+                module = import_module(f".{module_name}", __name__)
+                model_cls = getattr(module, class_name)
+            except Exception as exc:
+                raise ImportError(
+                    f"Unable to load model '{key}'. Install its optional dependencies and retry."
+                ) from exc
+
+            self[key] = model_cls
+            return model_cls
+
+        return value
+
+
+MODELS = _LazyModelRegistry({
+    'random_forest': ('random_forest', 'RandomForest'),
+    'sarimax': ('sarimax', 'Sarimax'),
+    'orbit': ('orbit', 'Orbit'),
+    'lstm': ('LSTM', 'MyLSTM'),
+    'gru': ('GRU', 'MyGRU'),
+    'arima': ('arima', 'MyARIMA'),
+    'prophet': ('prophet', 'MyProphet'),
+    'xgboost': ('xgboost', 'MyXGboost'),
+    'neural_prophet': ('neural_prophet', 'Neural_Prophet'),
+})

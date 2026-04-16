@@ -1,12 +1,14 @@
 defaults:
   - _self_
   - model: random_forest #orbit - random_forest - sarimax - lstm - gru - prophet
-  - dataset_loader: CoinMarket #Bitmex
+  - dataset_loader: Bitmex #CoinMarket
   - metrics
 
 validation_method: simple #simple - cross_validation
 symbol: ETH
-load_path: C:\CryptoPredictions\data\ETHUSD-1d-data.csv
+load_path: ${hydra:runtime.cwd}/data/ETHUSD-1h-data.csv
+# symbol: PEPE
+# load_path: ${hydra:runtime.cwd}/data/PEPEUSDT-1h-data.csv
 save_dir:
 dataset_path:
 

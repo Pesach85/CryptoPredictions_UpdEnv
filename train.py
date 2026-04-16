@@ -16,12 +16,12 @@ from path_definition import HYDRA_PATH
 from utils.reporter import Reporter
 from data_loader.creator import create_dataset, preprocess
 
-
 logger = logging.getLogger(__name__)
 
 
 @hydra.main(config_path=HYDRA_PATH, config_name="train")
 def train(cfg: DictConfig):
+    global profit_calculator, mean_prediction
     if cfg.load_path is None and cfg.model is None:
         msg = 'either specify a load_path or config a model.'
         logger.error(msg)
@@ -40,7 +40,7 @@ def train(cfg: DictConfig):
 
     elif cfg.model is not None:
         dataset, profit_calculator = get_dataset(cfg.dataset_loader.name, cfg.dataset_loader.train_start_date,
-                              cfg.dataset_loader.valid_end_date, cfg)
+                                                 cfg.dataset_loader.valid_end_date, cfg)
 
     cfg.save_dir = os.getcwd()
     reporter = Reporter(cfg)
@@ -53,10 +53,10 @@ def train(cfg: DictConfig):
     if cfg.validation_method == 'simple':
         train_dataset = dataset[
             (dataset['Date'] > cfg.dataset_loader.train_start_date) & (
-                        dataset['Date'] < cfg.dataset_loader.train_end_date)]
+                    dataset['Date'] < cfg.dataset_loader.train_end_date)]
         valid_dataset = dataset[
             (dataset['Date'] > cfg.dataset_loader.valid_start_date) & (
-                        dataset['Date'] < cfg.dataset_loader.valid_end_date)]
+                    dataset['Date'] < cfg.dataset_loader.valid_end_date)]
         Trainer(cfg, train_dataset, None, model).train()
         mean_prediction = Evaluator(cfg, test_dataset=valid_dataset, model=model, reporter=reporter).evaluate()
 

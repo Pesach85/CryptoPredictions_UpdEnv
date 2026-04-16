@@ -34,11 +34,11 @@ def preprocess(dataset, cfg, logger=None):
     df1 = df.drop('Mean', axis=1)
     arr = np.array(df1)
 
+    indicators_names = list(cfg.dataset_loader.indicators_names.split(' '))
     indicators = calculate_indicators(mean_=np.array(df.Mean), low_=np.array(df.Low),
                                       high_=np.array(df.High), open_=np.array(df.open),
-                                      close_=np.array(df.close), volume_=np.array(df.volume))
-
-    indicators_names = list(cfg.dataset_loader.indicators_names.split(' '))
+                                      close_=np.array(df.close), volume_=np.array(df.volume),
+                                      requested=indicators_names)
 
     arr1, dates = add_indicators_to_dataset(indicators, indicators_names, dates, mean_=np.array(df.Mean))
     arr = np.concatenate((arr[100:], arr1), axis=1)
@@ -60,6 +60,12 @@ def create_dataset(dataset, dates, look_back, features):
         b = b + a.tolist()
         b.append(dataset[(i + look_back), :][-1])
         data_x.append(b)
+
+    if len(data_x) == 0:
+        raise ValueError(
+            'Insufficient samples after preprocessing/windowing. '
+            'Increase date range or reduce window_size/indicator warmup.'
+        )
 
     data_x = np.array(data_x)
     # y = data_x[:, 1:].astype(np.float)

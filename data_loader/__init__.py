@@ -1,5 +1,3 @@
-from .CoinMarketDataset import CoinMarketDataset
-from .Bitmex import BitmexDataset
 from datetime import datetime
 import pandas as pd
 import numpy as np
@@ -10,8 +8,10 @@ DATA_TYPES = ['train', 'validation', 'test']
 
 def get_dataset(dataset_name, start_date, end_date, args):
     assert dataset_name in DATASETS, \
-        f"Dataset {args.dataset_name} is not available."
+        f"Dataset {dataset_name} is not available."
     if dataset_name == 'CoinMarket':
+        from .CoinMarketDataset import CoinMarketDataset
+
         main_features = ['High', 'Volume', 'Low', 'Close', 'Open', 'Mean']
         # main_features = ['High', 'Low', 'Mean']
 
@@ -21,7 +21,7 @@ def get_dataset(dataset_name, start_date, end_date, args):
             start_date = datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S')
 
         if end_date == "-1":
-            start_date = None
+            end_date = None
         else:
             end_date = datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S')
 
@@ -30,9 +30,9 @@ def get_dataset(dataset_name, start_date, end_date, args):
         dataset = btc.get_dataset()
 
     elif dataset_name == 'Bitmex':
+        from .Bitmex import BitmexDataset
+
         btc = BitmexDataset(args)
         dataset = btc.get_dataset()
 
     return dataset
-
-
