@@ -12,6 +12,31 @@
         "scripts/run_2026_readme_example.ps1"
       ],
       "problemMatcher": []
+    },
+    {
+      "label": "safe-cleanup-dry-run",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "scripts/safe_cleanup.ps1"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "safe-cleanup-apply",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "scripts/safe_cleanup.ps1",
+        "-Execute"
+      ],
+      "problemMatcher": []
     }
   ]
 }

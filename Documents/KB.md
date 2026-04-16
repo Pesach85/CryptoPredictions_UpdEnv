@@ -32,6 +32,41 @@
 - The workspace gate now mandates a `Next Best Decision` section for substantial outputs.
 - The section must contain one deterministic, testable immediate action.
 
+## 2026-04-16 Safe Resource Cleanup Automation
+
+### What changed
+- Added `scripts/safe_cleanup.ps1` with safe defaults and deterministic retention:
+	- Dry-run by default (no deletion without `-Execute`).
+	- Cleans local project Python caches (`__pycache__`, plus `.pyc/.pyo` outside cache folders).
+	- Prunes stale dated run folders under `outputs/` and `outputs/meta_historical/`.
+	- Preserves README-referenced artifact runs under `outputs/meta_historical/YYYY-MM-DD/HH-MM-SS`.
+	- Removes empty directories left after cleanup.
+- Added VS Code automation tasks in `.vscode/tasks.json`:
+	- `safe-cleanup-dry-run`
+	- `safe-cleanup-apply`
+- Added README maintenance section with one-command dry-run and apply usage.
+
+### Validation evidence
+- Dry-run preview before deletion:
+	- Planned removals: `48`
+	- Planned reclaimed space: `3066.23 MB`
+- Applied cleanup:
+	- Removed items: `44`
+	- Freed space: `3066.23 MB`
+- Storage verification:
+	- `outputs` before: `3799.44 MB`
+	- `outputs` after: `733.41 MB`
+- Regression check command executed successfully:
+	- `powershell -ExecutionPolicy Bypass -File scripts/run_2026_readme_example.ps1`
+	- Confirmed all README-referenced chart artifacts are still present.
+
+### Residual risks
+- New experiment runs can regrow `outputs/meta_historical` quickly (large `*_model_retrained.joblib` artifacts).
+- Current policy is retention-based; if long-term archival is needed, artifacts should be externalized/compressed outside the active workspace.
+
+### Next Best Decision
+- Add a scheduled weekly run of `safe-cleanup-dry-run` and a manual approval gate for `safe-cleanup-apply` to keep storage bounded without accidental artifact loss.
+
 ## 2026-04-16 Meta-Historical Test (ETHUSD)
 - Goal: train on past local ETH dataset, predict current-year behavior deterministically, compare with realized prices, then retrain on up-to-date data.
 - Execution script:
