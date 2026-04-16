@@ -124,15 +124,12 @@ def calculate_indicators(mean_, close_, open_, high_, low_, volume_, requested=N
 
 
 def add_indicators_to_dataset(indicators, indicators_names, dates, mean_):
+    indicators_names = list(indicators_names)  # avoid mutating caller's list
     new_data = []
     for i in range(len(indicators_names)):
         item = indicators_names[i]
-        # print(item, indicators[item].shape)
-        # print(99, indicators[item], i)
         new_data.append(indicators[item])
 
-        # print(new_data.shape)
-    # new_data = np.stack((new_data, mean_), axis=0)
     new_data.append(mean_)
     indicators_names.append('mean')
     new_data = np.array(new_data)

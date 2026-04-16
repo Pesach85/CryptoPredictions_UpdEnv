@@ -73,7 +73,8 @@ def mae(pred, target, is_regression=False):
 
 
 def mape(pred, target, is_regression=False):
-    mape = np.mean(np.abs((pred - target)/target)) * 100
+    target_safe = np.where(np.abs(target) < 1e-9, 1e-9, target)
+    mape = np.mean(np.abs((pred - target) / target_safe)) * 100
     return mape
 
 
@@ -92,7 +93,9 @@ def mase(pred, target, sp=365, is_regression=False):
         return np.mean(np.abs(target - pred)) / mae_naive
 
 
-def msle(pred, target, squared=True,is_regression=False):
+def msle(pred, target, squared=True, is_regression=False):
+    pred_safe = np.clip(np.array(pred).astype(float), -1 + 1e-9, None)
+    target_safe = np.clip(np.array(target).astype(float), -1 + 1e-9, None)
     if squared:
-        return np.mean(np.power(np.log(np.array(pred).astype(float) + 1) - np.log(np.array(target).astype(float) + 1), 2))
-    return np.sqrt(np.mean(np.power(np.log(np.array(pred).astype(float) + 1) - np.log(np.array(target).astype(float) + 1), 2)))
+        return np.mean(np.power(np.log(pred_safe + 1) - np.log(target_safe + 1), 2))
+    return np.sqrt(np.mean(np.power(np.log(pred_safe + 1) - np.log(target_safe + 1), 2)))

@@ -55,8 +55,8 @@ class Reporter:
         self.add_new_row_to_data_frame(f"validation-{self.counter_cross_validation}")
 
     def setup_saving_dirs(self, parent_dir):
-        os.makedirs(os.path.join(parent_dir, 'plots'), exist_ok=False)
-        os.makedirs(os.path.join(parent_dir, 'metrics_history'), exist_ok=False)
+        os.makedirs(os.path.join(parent_dir, 'plots'), exist_ok=True)
+        os.makedirs(os.path.join(parent_dir, 'metrics_history'), exist_ok=True)
 
     def add_average(self):
         self.counter_cross_validation = self.counter_cross_validation + 1

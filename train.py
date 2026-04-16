@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 @hydra.main(config_path=HYDRA_PATH, config_name="train")
 def train(cfg: DictConfig):
-    global profit_calculator, mean_prediction
+    profit_calculator = None
+    mean_prediction = None
     if cfg.load_path is None and cfg.model is None:
         msg = 'either specify a load_path or config a model.'
         logger.error(msg)

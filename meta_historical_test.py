@@ -16,6 +16,12 @@ from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error, mean_
 
 
 def load_local_close_series(csv_path: Path) -> pd.Series:
+    df = load_local_ohlcv(csv_path)
+    return df["close"]
+
+
+def load_local_ohlcv(csv_path: Path) -> pd.DataFrame:
+    """Load OHLCV daily data from local CSV, normalized to date index."""
     df = pd.read_csv(csv_path)
 
     # Normalize schema because repo CSVs are not fully uniform (e.g. Date vs timestamp, optional index column).
@@ -40,13 +46,21 @@ def load_local_close_series(csv_path: Path) -> pd.Series:
     df = df.dropna(subset=["_timestamp", "_close"]).copy()
     df["date"] = df["_timestamp"].dt.tz_convert(None).dt.floor("D")
 
-    series = (
-        df.sort_values("date")
-        .groupby("date", as_index=True)["_close"]
-        .last()
-        .astype(float)
-    )
-    return series
+    # Resolve optional OHLCV columns
+    vol_col = col_map.get("volume")
+    high_col = col_map.get("high")
+    low_col = col_map.get("low")
+    open_col = col_map.get("open")
+
+    result = df.sort_values("date").groupby("date", as_index=True).agg(
+        close=("_close", "last"),
+        volume=(vol_col, "sum") if vol_col else ("_close", lambda x: 0.0),
+        high=(high_col, "max") if high_col else ("_close", "max"),
+        low=(low_col, "min") if low_col else ("_close", "min"),
+        open=(open_col, "first") if open_col else ("_close", "first"),
+    ).astype(float)
+
+    return result
 
 
 def sanitize_symbol(asset_symbol: str) -> str:
@@ -230,7 +244,72 @@ def coin_id_to_symbol(coin_id: str) -> str:
         "pepe": "PEPE",
         "aptos": "APT",
     }
-    return id_to_symbol.get(coin_id, "ETH")
+    result = id_to_symbol.get(coin_id)
+    if result is None:
+        raise ValueError(f"Unknown coin_id: {coin_id}. Add it to id_to_symbol mapping.")
+    return result
+
+
+def fetch_api_daily_ohlcv(coin_id: str, start_dt: datetime, end_dt: datetime) -> pd.DataFrame:
+    """Fetch OHLCV daily data from CryptoCompare (preferred for OHLCV completeness)."""
+    symbol = coin_id_to_symbol(coin_id)
+    from_ts = int(start_dt.replace(tzinfo=timezone.utc).timestamp())
+    to_ts = int(end_dt.replace(tzinfo=timezone.utc).timestamp())
+
+    url = "https://min-api.cryptocompare.com/data/v2/histoday"
+    response = requests.get(
+        url,
+        params={"fsym": symbol, "tsym": "USD", "limit": 2000, "toTs": to_ts},
+        timeout=45,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    rows = payload.get("Data", {}).get("Data", [])
+    frame = pd.DataFrame(rows)
+    if frame.empty or "time" not in frame.columns:
+        raise ValueError("CryptoCompare returned no usable OHLCV data.")
+
+    frame["date"] = pd.to_datetime(frame["time"], unit="s", utc=True).dt.tz_convert(None).dt.floor("D")
+    frame = frame[(frame["time"] >= from_ts) & (frame["time"] <= to_ts)]
+    frame = frame.dropna(subset=["close"])
+    if frame.empty:
+        raise ValueError("CryptoCompare returned empty OHLCV for selected date range.")
+
+    result = frame.set_index("date")[["open", "high", "low", "close"]].astype(float)
+    vol_col = "volumeto" if "volumeto" in frame.columns else "volumefrom"
+    result["volume"] = pd.to_numeric(frame.set_index("date")[vol_col], errors="coerce").fillna(0.0)
+    return result
+
+
+def compute_ta_features(ohlcv: pd.DataFrame) -> pd.DataFrame:
+    """Compute RSI-14, MACD line, ATR-14 from OHLCV DataFrame. Pure pandas/numpy, no numba."""
+    df = ohlcv.copy()
+
+    # RSI-14
+    delta = df["close"].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.ewm(span=14, min_periods=14, adjust=False).mean()
+    avg_loss = loss.ewm(span=14, min_periods=14, adjust=False).mean()
+    rs = avg_gain / avg_loss.replace(0, 1e-9)
+    df["rsi_14"] = 100 - (100 / (1 + rs))
+
+    # MACD (12, 26, 9)
+    ema12 = df["close"].ewm(span=12, adjust=False).mean()
+    ema26 = df["close"].ewm(span=26, adjust=False).mean()
+    df["macd"] = ema12 - ema26
+
+    # ATR-14
+    high_low = df["high"] - df["low"]
+    high_close = (df["high"] - df["close"].shift(1)).abs()
+    low_close = (df["low"] - df["close"].shift(1)).abs()
+    true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    df["atr_14"] = true_range.rolling(14, min_periods=14).mean()
+
+    # Returns (pct_change for stationarity)
+    df["returns"] = df["close"].pct_change()
+
+    return df
 
 
 def build_supervised(close_series: pd.Series, lags: int = 30) -> pd.DataFrame:
@@ -243,9 +322,106 @@ def build_supervised(close_series: pd.Series, lags: int = 30) -> pd.DataFrame:
     return df
 
 
+def build_supervised_enhanced(ohlcv: pd.DataFrame, lags: int = 30) -> tuple[pd.DataFrame, list[str]]:
+    """Build enhanced supervised dataset with multi-feature lags and technical indicators."""
+    df = compute_ta_features(ohlcv)
+    df = df.dropna().copy()
+
+    feature_cols = []
+    # Lagged close prices
+    for lag in range(1, lags + 1):
+        col = f"lag_close_{lag}"
+        df[col] = df["close"].shift(lag)
+        feature_cols.append(col)
+
+    # Lagged volume (normalized by rolling mean to reduce scale variance)
+    vol_mean = df["volume"].rolling(30, min_periods=1).mean().replace(0, 1)
+    df["vol_norm"] = df["volume"] / vol_mean
+    for lag in range(1, min(lags, 14) + 1):
+        col = f"lag_vol_{lag}"
+        df[col] = df["vol_norm"].shift(lag)
+        feature_cols.append(col)
+
+    # Lagged returns
+    for lag in range(1, min(lags, 14) + 1):
+        col = f"lag_ret_{lag}"
+        df[col] = df["returns"].shift(lag)
+        feature_cols.append(col)
+
+    # Lagged indicators (only a few lags needed for slow indicators)
+    for indicator in ["rsi_14", "macd", "atr_14"]:
+        for lag in range(1, min(lags, 7) + 1):
+            col = f"lag_{indicator}_{lag}"
+            df[col] = df[indicator].shift(lag)
+            feature_cols.append(col)
+
+    df["target"] = df["close"]
+    df = df.dropna().copy()
+
+    return df, feature_cols
+
+
+def build_supervised_focused(close_series: pd.Series, lags: int = 30) -> tuple[pd.DataFrame, list[str]]:
+    """Focused feature set: close lags + RSI-14 + MACD + returns. No OHLCV dependency (derived from close)."""
+    df = pd.DataFrame({"close": close_series.sort_index()})
+
+    # RSI-14 from close only
+    delta = df["close"].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.ewm(span=14, min_periods=14, adjust=False).mean()
+    avg_loss = loss.ewm(span=14, min_periods=14, adjust=False).mean()
+    rs = avg_gain / avg_loss.replace(0, 1e-9)
+    df["rsi_14"] = 100 - (100 / (1 + rs))
+
+    # MACD from close only
+    ema12 = df["close"].ewm(span=12, adjust=False).mean()
+    ema26 = df["close"].ewm(span=26, adjust=False).mean()
+    df["macd"] = ema12 - ema26
+
+    # Returns
+    df["returns"] = df["close"].pct_change()
+
+    df = df.dropna().copy()
+
+    feature_cols = []
+    # Lagged close
+    for lag in range(1, lags + 1):
+        col = f"lag_close_{lag}"
+        df[col] = df["close"].shift(lag)
+        feature_cols.append(col)
+
+    # Lagged returns (shorter than close lags — recent momentum)
+    for lag in range(1, min(lags, 7) + 1):
+        col = f"lag_ret_{lag}"
+        df[col] = df["returns"].shift(lag)
+        feature_cols.append(col)
+
+    # Lagged RSI and MACD (very few lags — slow indicators)
+    for indicator in ["rsi_14", "macd"]:
+        for lag in range(1, min(lags, 5) + 1):
+            col = f"lag_{indicator}_{lag}"
+            df[col] = df[indicator].shift(lag)
+            feature_cols.append(col)
+
+    df["target"] = df["close"]
+    df = df.dropna().copy()
+
+    return df, feature_cols
+    df = pd.DataFrame({"close": close_series.sort_index()})
+    for lag in range(1, lags + 1):
+        df[f"lag_{lag}"] = df["close"].shift(lag)
+
+    df = df.dropna().copy()
+    df["target"] = df["close"]
+    return df
+
+
 def build_naive_prediction(feature_df: pd.DataFrame) -> np.ndarray:
-    # lag_1 is yesterday close; this is deterministic naive persistence baseline.
-    return feature_df["lag_1"].values.astype(float)
+    # lag_1 or lag_close_1 is yesterday close; this is deterministic naive persistence baseline.
+    if "lag_1" in feature_df.columns:
+        return feature_df["lag_1"].values.astype(float)
+    return feature_df["lag_close_1"].values.astype(float)
 
 
 def directional_scores(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
@@ -369,7 +545,6 @@ def save_price_prediction_plot(pred_df: pd.DataFrame, out_path: Path, asset_symb
 
     # --- Bottom subplot: weekly price fluctuation bars ---
     bar_width = pd.Timedelta(days=2)
-    date_index = list(df_weekly.index)
 
     # Colour per bar: red on the week of maximum predicted-vs-actual divergence.
     for i, row in df_weekly.iterrows():
@@ -471,32 +646,77 @@ def run_meta_historical_test(
     walk_forward_step: int,
     out_dir: Path,
     train_cutoff: str | None = None,
+    feature_mode: str = "close",
 ) -> dict:
     root = Path(__file__).resolve().parent
     local_csv = root / "data" / f"{asset_symbol}-1d-data.csv"
     if not local_csv.exists():
         raise FileNotFoundError(f"Local dataset not found: {local_csv}")
 
-    local_series = load_local_close_series(local_csv)
-    if train_cutoff is not None:
-        cutoff_dt = pd.Timestamp(train_cutoff)
-        local_series = local_series[local_series.index <= cutoff_dt]
-        train_end = cutoff_dt
+    use_enhanced = feature_mode == "enhanced"
+    use_focused = feature_mode == "focused"
+
+    if use_enhanced:
+        local_ohlcv = load_local_ohlcv(local_csv)
+        if train_cutoff is not None:
+            cutoff_dt = pd.Timestamp(train_cutoff)
+            local_ohlcv = local_ohlcv[local_ohlcv.index <= cutoff_dt]
+            train_end = cutoff_dt
+        else:
+            train_end = local_ohlcv.index.max()
+
+        trending_symbols = fetch_trending_symbols()
+        coin_id = resolve_coingecko_coin_id(asset_symbol)
+
+        api_start = train_end + timedelta(days=1)
+        api_end = datetime.now(timezone.utc)
+        api_ohlcv = fetch_api_daily_ohlcv(coin_id, api_start, api_end)
+
+        combined_ohlcv = pd.concat([local_ohlcv, api_ohlcv])
+        combined_ohlcv = combined_ohlcv[~combined_ohlcv.index.duplicated(keep="last")].sort_index()
+
+        supervised, feature_cols = build_supervised_enhanced(combined_ohlcv, lags=lags)
+    elif use_focused:
+        local_series = load_local_close_series(local_csv)
+        if train_cutoff is not None:
+            cutoff_dt = pd.Timestamp(train_cutoff)
+            local_series = local_series[local_series.index <= cutoff_dt]
+            train_end = cutoff_dt
+        else:
+            train_end = local_series.index.max()
+
+        trending_symbols = fetch_trending_symbols()
+        coin_id = resolve_coingecko_coin_id(asset_symbol)
+
+        api_start = train_end + timedelta(days=1)
+        api_end = datetime.now(timezone.utc)
+        api_series = fetch_api_daily_close(coin_id, api_start, api_end)
+
+        combined_series = pd.concat([local_series, api_series])
+        combined_series = combined_series[~combined_series.index.duplicated(keep="last")].sort_index()
+
+        supervised, feature_cols = build_supervised_focused(combined_series, lags=lags)
     else:
-        train_end = local_series.index.max()
+        local_series = load_local_close_series(local_csv)
+        if train_cutoff is not None:
+            cutoff_dt = pd.Timestamp(train_cutoff)
+            local_series = local_series[local_series.index <= cutoff_dt]
+            train_end = cutoff_dt
+        else:
+            train_end = local_series.index.max()
 
-    trending_symbols = fetch_trending_symbols()
-    coin_id = resolve_coingecko_coin_id(asset_symbol)
+        trending_symbols = fetch_trending_symbols()
+        coin_id = resolve_coingecko_coin_id(asset_symbol)
 
-    api_start = train_end + timedelta(days=1)
-    api_end = datetime.now(timezone.utc)
-    api_series = fetch_api_daily_close(coin_id, api_start, api_end)
+        api_start = train_end + timedelta(days=1)
+        api_end = datetime.now(timezone.utc)
+        api_series = fetch_api_daily_close(coin_id, api_start, api_end)
 
-    combined_series = pd.concat([local_series, api_series])
-    combined_series = combined_series[~combined_series.index.duplicated(keep="last")].sort_index()
+        combined_series = pd.concat([local_series, api_series])
+        combined_series = combined_series[~combined_series.index.duplicated(keep="last")].sort_index()
 
-    supervised = build_supervised(combined_series, lags=lags)
-    feature_cols = [f"lag_{i}" for i in range(1, lags + 1)]
+        supervised = build_supervised(combined_series, lags=lags)
+        feature_cols = [f"lag_{i}" for i in range(1, lags + 1)]
 
     train_mask = supervised.index <= train_end
     current_year = datetime.now().year
@@ -566,6 +786,8 @@ def run_meta_historical_test(
         "coin_id": coin_id,
         "train_end_date": str(pd.Timestamp(train_end).date()),
         "train_cutoff_applied": train_cutoff,
+        "feature_mode": feature_mode,
+        "feature_count": len(feature_cols),
         "evaluation_year": int(current_year),
         "evaluation_samples": int(len(eval_df)),
         "lags": int(lags),
@@ -621,6 +843,17 @@ def run_cli():
             "Default: use the full local series (last bar in CSV)."
         ),
     )
+    parser.add_argument(
+        "--features",
+        type=str,
+        choices=["close", "enhanced", "focused"],
+        default="close",
+        help=(
+            "Feature mode. 'close': lag-close only (baseline). "
+            "'enhanced': adds lagged volume, returns, RSI-14, MACD, ATR-14 (needs OHLCV API). "
+            "'focused': close lags + RSI-14 + MACD + returns (close-derived only, no OHLCV dependency)."
+        ),
+    )
     args = parser.parse_args()
 
     assets = parse_assets(args.assets)
@@ -640,6 +873,7 @@ def run_cli():
             walk_forward_step=args.wf_step,
             out_dir=out_dir,
             train_cutoff=args.train_cutoff,
+            feature_mode=args.features,
         )
         summary_rows.append(result)
 

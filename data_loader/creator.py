@@ -11,7 +11,7 @@ def preprocess(dataset, cfg, logger=None):
         features = cfg.dataset_loader.features.split(',')
         features = [s.strip() for s in features]
     else:
-        features = dataset.columns
+        features = list(dataset.columns)
         features.remove('Date')
 
     dates = dataset['Date']
@@ -25,7 +25,7 @@ def preprocess(dataset, cfg, logger=None):
 
     try:
         df['Mean'] = (df['Low'] + df['High']) / 2
-    except:
+    except (KeyError, TypeError):
         if logger is not None:
             logger.error('your dataset_loader should have High and Low columns')
 
@@ -40,9 +40,11 @@ def preprocess(dataset, cfg, logger=None):
                                       close_=np.array(df.close), volume_=np.array(df.volume),
                                       requested=indicators_names)
 
+    INDICATOR_WARMUP = 100
     arr1, dates = add_indicators_to_dataset(indicators, indicators_names, dates, mean_=np.array(df.Mean))
-    arr = np.concatenate((arr[100:], arr1), axis=1)
-    features.remove('Date')
+    arr = np.concatenate((arr[INDICATOR_WARMUP:], arr1), axis=1)
+    if 'Date' in features:
+        features.remove('Date')
     features = features + indicators_names
     dataset, profit_calculator = create_dataset(arr, list(dates), look_back=cfg.dataset_loader.window_size,
                                                 features=features)

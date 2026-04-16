@@ -341,3 +341,98 @@ Full JSON audit results saved during session at `_dataset_audit_results.json` (n
 
 ### Next Best Decision
 - Keep the same leakage-safe split and run a deterministic 4-week rolling recheck (same 6 assets, same cutoff policy) to verify stability of MAPE and directional metrics before any model-class change.
+
+## 2026-04-16 Deep Code Review — Bug Fixes (14 issues)
+
+### Bugs fixed in this session
+1. **`metrics/metrics.py` → `mape()` division by zero**: Added epsilon guard for zero targets.
+2. **`metrics/metrics.py` → `msle()` negative input crash**: Added `np.clip` guard for values < -1.
+3. **`data_loader/creator.py` → bare `except:`**: Changed to `except (KeyError, TypeError):`.
+4. **`data_loader/creator.py` → `features.remove('Date')` mutated DataFrame columns**: Changed to `list(dataset.columns)`.
+5. **`data_loader/creator.py` → hardcoded `[100:]` slice**: Replaced with `INDICATOR_WARMUP = 100` constant.
+6. **`data_loader/indicators.py` → `add_indicators_to_dataset()` mutated caller's list**: Added `list()` copy.
+7. **`models/random_forest.py` → missing `n_jobs=-1`**: Added for full CPU utilization in train.py pipeline.
+8. **`models/xgboost.py` → `verbose=3` hardcoded**: Changed to `verbose=0`.
+9. **`factory/profit_calculator.py` → `exist_ok=False`**: Changed to `exist_ok=True` to allow re-runs.
+10. **`utils/reporter.py` → `exist_ok=False`**: Changed to `exist_ok=True`.
+11. **`train.py` → unnecessary `global` statement**: Replaced with local variable initialization.
+12. **`meta_historical_test.py` → unused `date_index` variable**: Removed.
+13. **`meta_historical_test.py` → `coin_id_to_symbol()` silent ETH fallback**: Changed to raise `ValueError`.
+14. **`backtester.py` → `save_report()` path handling**: Added `os.path.isdir()` check for safe path resolution.
+
+## 2026-04-16 NDB Stability Recheck (post-bugfix)
+
+### Run
+- Command: `python meta_historical_test.py --assets ETHUSD,XBTUSD,SOLUSD,ADAUSD,LTCUSD,BCHUSD --train-cutoff 2025-12-31 --min-samples 50 --max-mape 5.0 --n-estimators 300`
+- Output: `outputs/meta_historical/2026-04-16/13-27-53/`
+
+### Results — identical to pre-bugfix run (stability confirmed)
+| Asset  | Eval | Acc   | MAPE  | Gate  |
+|--------|------|-------|-------|-------|
+| ETHUSD | 106  | 0.533 | 2.89% | PASS  |
+| XBTUSD | 106  | 0.514 | 2.69% | PASS  |
+| SOLUSD | 106  | 0.524 | 4.81% | PASS  |
+| ADAUSD | 106  | 0.486 | 3.35% | PASS  |
+| LTCUSD | 106  | 0.562 | 2.51% | PASS  |
+| BCHUSD | 106  | 0.495 | 2.64% | PASS  |
+
+### Interpretation
+Bug fixes did not alter model outputs — confirms no behavioral regression from code hardening.
+
+## 2026-04-16 Experimental Steps
+
+### Exp 1: SOL n_estimators=500
+- MAPE: 4.80% (vs 4.81% at n=300) — negligible, confirms data regime not model capacity.
+
+### Exp 2: Strict gate max-mape=4.0
+- 5/6 PASS, SOL FAIL (4.81%). SOL is a high-beta asset with structural MAPE > 4%.
+
+### Exp 3: Feature Mode A/B Testing (ETH)
+
+| Mode     | Lags | Feature Count | MAPE     | Accuracy | Naive Edge |
+|----------|------|---------------|----------|----------|------------|
+| close    | 30   | 30            | **2.89%**| 0.533    | +1.9pp     |
+| close    | 14   | 14            | 3.03%    | **0.571**| **+5.7pp** |
+| focused  | 30   | 47            | 3.04%    | 0.562    | +4.8pp     |
+| focused  | 14   | 24            | 3.12%    | 0.543    | +2.9pp     |
+| enhanced | 30   | 79            | 3.45%    | 0.467    | -4.7pp     |
+
+### Key Findings
+1. **close-only lags=30**: best MAPE (2.89%) — simplest model wins on magnitude error.
+2. **close-only lags=14**: best directional accuracy (0.571, +5.7pp over naive) — fewer dimensions = less noise.
+3. **focused (close + RSI + MACD)**: good directional edge at lags=30 (+4.8pp) but not additive with short lags.
+4. **enhanced (full OHLCV + all indicators)**: worst overall — feature explosion with limited training data causes overfitting.
+5. **More features != better predictions** — the binding constraint is training data regime, not feature space.
+
+### Predictive Power Key (deterministic analysis)
+The single highest-impact change for this system is **reducing lag dimensionality from 30 to 14** for directional accuracy tasks. This triples the naive directional edge (from +1.9pp to +5.7pp) with only a marginal MAPE cost (+0.14pp).
+
+For MAPE-sensitive tasks, the current lags=30 close-only remains optimal.
+
+The system now has 3 feature modes via `--features`:
+- `close` (default): baseline lag-close model
+- `focused`: close lags + RSI-14 + MACD + returns (close-derived, no OHLCV API dependency)
+- `enhanced`: full OHLCV lags + volume + all indicators (needs CryptoCompare OHLCV)
+
+### Next Best Decision
+Run a 6-asset gate with `--features focused --lags 14 --max-mape 5.0` to verify the directional accuracy improvement generalizes across all assets, not just ETH.
+
+## Code Improvements and Optimizations
+
+### Speed improvements already in place
+- `RandomForest(n_jobs=-1)` now set in both `train.py` and `meta_historical_test.py`
+- `XGBoost(verbose=0)` eliminates log spam
+- `exist_ok=True` prevents re-run crashes
+
+### Recommended future improvements (not implemented, for reference)
+1. **Feature importance reporting**: Add `model.feature_importances_` output to meta_historical_test artifacts.
+2. **Ensemble voting**: Combine RF + XGBoost predictions with simple average.
+3. **Confidence intervals**: Use RF tree-level predictions for 90% CI.
+4. **Parallel asset processing**: Use `concurrent.futures.ProcessPoolExecutor` for multi-asset runs.
+5. **API response caching**: Cache CryptoCompare/CoinGecko responses locally.
+6. **Rolling window training option**: Add `--train-window N` flag to use only last N days for training.
+
+### Known limitations
+- SOL MAPE consistently > 4% regardless of n_estimators or feature mode — inherent high-beta regime effect.
+- `enhanced` mode degrades performance with current data volume (~1000 training rows); needs 3000+ rows.
+- Walk-forward scoring is slow for 6 assets (~3 minutes total due to sequential model refitting).

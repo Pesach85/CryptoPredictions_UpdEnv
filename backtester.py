@@ -98,7 +98,8 @@ def add_indicators(df, cfg):
 def save_report(stat, address, fname):
     fname = fname.split('.')[0]
     a = str(stat)
-    new_add = os.path.join(address, f'{fname}.txt')
+    report_dir = address if os.path.isdir(address) else os.path.dirname(address)
+    new_add = os.path.join(report_dir, f'{fname}.txt')
     with open(new_add, "w") as text_file:
         text_file.write(a)
 

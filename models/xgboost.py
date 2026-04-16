@@ -25,7 +25,7 @@ class MyXGboost:
                 n_iter=20,
                 n_jobs=-1,
                 cv=5,
-                verbose=3,
+                verbose=0,
                 )
         self.response_col = args.response_col
         self.date_col = args.date_col
