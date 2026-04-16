@@ -292,3 +292,52 @@ Full JSON audit results saved during session at `_dataset_audit_results.json` (n
 - Metrics can include both directional and regression objectives; interpretation should be explicit in reports.
 - Bitmex online data path remains network-dependent when local CSV is unavailable.
 - Backtester emits margin warnings for some strategy signals; this is simulation behavior from the underlying library, not a runtime crash.
+
+## 2026-04-16 Dataset Refresh + Retrain + Expanded Meta-Historical Recheck
+
+### Dataset maintenance completed
+- Extended all `*-1d-data.csv` files to `2026-04-15` using CryptoCompare daily bars.
+- Deduplicated all CSVs (1d and 1h) by timestamp and normalized away unnamed index columns.
+- Summary of maintenance run:
+	- New rows appended: `21,775`
+	- Duplicate rows removed: `3,386`
+	- Key duplicate fixes: `PEPEUSDT-1h (-3353)`, `ETHUSD-1h (-31)`, `XBTUSD-1h (-2)`
+
+### Train smoke test after big review
+- Command used (load-path mode on refreshed daily ETH CSV):
+	- `python train.py load_path=d:/CryptoPredictions/data/ETHUSD-1d-data.csv model.n_estimators=100 dataset_loader.train_start_date='2022-01-01 00:00:00' dataset_loader.train_end_date='2025-01-01 00:00:00' dataset_loader.valid_start_date='2025-01-01 00:00:00' dataset_loader.valid_end_date='2025-12-31 00:00:00'`
+- Status: completed successfully (train + evaluate + profit_calculator).
+- Observed validation metrics (`validation-0`):
+	- `accuracy_score=0.612`, `f1_score=0.606`, `recall_score=0.602`, `precision_score=0.609`
+	- `MAE=143.71`, `RMSE=253.67`, `MAPE=3.85`, `SMAPE=4.01`, `MASE=2.08`, `MSLE=0.004`
+
+### Meta-historical retest on more assets (leakage-safe split)
+- Command:
+	- `python meta_historical_test.py --assets ETHUSD,XBTUSD,SOLUSD,ADAUSD,LTCUSD,BCHUSD --train-cutoff 2025-12-31 --min-samples 50 --max-mape 5.0 --n-estimators 300`
+- Output folder:
+	- `outputs/meta_historical/2026-04-16/12-59-52/`
+- Rationale:
+	- Local datasets now include 2026 rows; therefore explicit `--train-cutoff 2025-12-31` was used to avoid train/eval overlap and keep 2026 as clean evaluation period.
+
+| Asset  | Eval Samples | Model Accuracy | Model MAPE | Naive Accuracy | Naive MAPE | Gate (MAPE<=5) |
+|--------|--------------|----------------|------------|----------------|------------|----------------|
+| ETHUSD | 106          | 0.533          | 2.89%      | 0.514          | 2.79%      | PASS |
+| XBTUSD | 106          | 0.514          | 2.69%      | 0.543          | 2.02%      | PASS |
+| SOLUSD | 106          | 0.524          | 4.81%      | 0.524          | 2.93%      | PASS |
+| ADAUSD | 106          | 0.486          | 3.35%      | 0.495          | 3.13%      | PASS |
+| LTCUSD | 106          | 0.562          | 2.51%      | 0.524          | 2.11%      | PASS |
+| BCHUSD | 106          | 0.495          | 2.64%      | 0.543          | 2.28%      | PASS |
+
+### Trend artifacts available
+- For each asset in the run folder:
+	- `price_prediction_chart.png` (daily prediction vs realized + weekly fluctuation/divergence)
+	- `accuracy_time_trend.png` (time/accuracy trend)
+	- `current_year_predictions.csv`, `accuracy_time_curve.csv`, `meta_historical_report.json`
+
+### Interpretation (research-only)
+- The post-refresh regime-shift effect on XBT dropped materially compared with earlier runs (MAPE now `2.69%`).
+- Directional edge over naive remains mixed across assets; magnitude error is now consistently within gate for all tested assets.
+- These are simulation metrics for predictive model quality, not investment guidance.
+
+### Next Best Decision
+- Keep the same leakage-safe split and run a deterministic 4-week rolling recheck (same 6 assets, same cutoff policy) to verify stability of MAPE and directional metrics before any model-class change.

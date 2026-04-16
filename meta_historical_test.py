@@ -470,6 +470,7 @@ def run_meta_historical_test(
     walk_forward_horizon: int,
     walk_forward_step: int,
     out_dir: Path,
+    train_cutoff: str | None = None,
 ) -> dict:
     root = Path(__file__).resolve().parent
     local_csv = root / "data" / f"{asset_symbol}-1d-data.csv"
@@ -477,7 +478,12 @@ def run_meta_historical_test(
         raise FileNotFoundError(f"Local dataset not found: {local_csv}")
 
     local_series = load_local_close_series(local_csv)
-    train_end = local_series.index.max()
+    if train_cutoff is not None:
+        cutoff_dt = pd.Timestamp(train_cutoff)
+        local_series = local_series[local_series.index <= cutoff_dt]
+        train_end = cutoff_dt
+    else:
+        train_end = local_series.index.max()
 
     trending_symbols = fetch_trending_symbols()
     coin_id = resolve_coingecko_coin_id(asset_symbol)
@@ -558,7 +564,8 @@ def run_meta_historical_test(
     report = {
         "asset_symbol": asset_symbol,
         "coin_id": coin_id,
-        "train_end_date": str(train_end.date()),
+        "train_end_date": str(pd.Timestamp(train_end).date()),
+        "train_cutoff_applied": train_cutoff,
         "evaluation_year": int(current_year),
         "evaluation_samples": int(len(eval_df)),
         "lags": int(lags),
@@ -603,6 +610,17 @@ def run_cli():
     parser.add_argument("--wf-step", type=int, default=7, help="Walk-forward anchor step in days")
     parser.add_argument("--min-samples", type=int, default=100, help="Gate threshold: minimum eval samples per asset")
     parser.add_argument("--max-mape", type=float, default=4.0, help="Gate threshold: maximum acceptable MAPE")
+    parser.add_argument(
+        "--train-cutoff",
+        type=str,
+        default=None,
+        help=(
+            "Explicit training cut-off date ISO string (e.g. 2025-12-31). "
+            "Local CSV data after this date is ignored for training; "
+            "the API evaluation window starts the day after. "
+            "Default: use the full local series (last bar in CSV)."
+        ),
+    )
     args = parser.parse_args()
 
     assets = parse_assets(args.assets)
@@ -621,6 +639,7 @@ def run_cli():
             walk_forward_horizon=args.wf_horizon,
             walk_forward_step=args.wf_step,
             out_dir=out_dir,
+            train_cutoff=args.train_cutoff,
         )
         summary_rows.append(result)
 
