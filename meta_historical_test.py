@@ -336,6 +336,8 @@ def save_price_prediction_plot(pred_df: pd.DataFrame, out_path: Path, asset_symb
     df_weekly["actual_wk_change"] = df_weekly["actual_close"].diff()
     df_weekly["pred_wk_change"] = df_weekly["predicted_close"].diff()
     df_weekly = df_weekly.dropna(subset=["actual_wk_change", "pred_wk_change"])
+    df_weekly["abs_divergence"] = (df_weekly["actual_wk_change"] - df_weekly["pred_wk_change"]).abs()
+    max_div_idx = df_weekly["abs_divergence"].idxmax() if not df_weekly.empty else None
 
     eval_year = df["date"].dt.year.iloc[0] if not df.empty else "?"
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(13, 9), dpi=140)
@@ -367,29 +369,45 @@ def save_price_prediction_plot(pred_df: pd.DataFrame, out_path: Path, asset_symb
 
     # --- Bottom subplot: weekly price fluctuation bars ---
     bar_width = pd.Timedelta(days=2)
-    ax2.bar(
-        df_weekly["date"] - pd.Timedelta(days=1.8),
-        df_weekly["actual_wk_change"],
-        width=bar_width,
-        color="#E67700",
-        alpha=0.70,
-        label="Actual weekly Δ",
-    )
-    ax2.bar(
-        df_weekly["date"] + pd.Timedelta(days=1.8),
-        df_weekly["pred_wk_change"],
-        width=bar_width,
-        color="#1971C2",
-        alpha=0.70,
-        label="Predicted weekly Δ",
-    )
+    date_index = list(df_weekly.index)
+
+    # Colour per bar: red on the week of maximum predicted-vs-actual divergence.
+    for i, row in df_weekly.iterrows():
+        is_max = max_div_idx is not None and i == max_div_idx
+        c_act = "#C92A2A" if is_max else "#E67700"
+        c_pred = "#C92A2A" if is_max else "#1971C2"
+        ax2.bar(row["date"] - pd.Timedelta(days=1.8), row["actual_wk_change"],
+                width=bar_width, color=c_act, alpha=0.80)
+        ax2.bar(row["date"] + pd.Timedelta(days=1.8), row["pred_wk_change"],
+                width=bar_width, color=c_pred, alpha=0.80)
+
+    # Annotate the max-divergence week
+    if max_div_idx is not None:
+        row_max = df_weekly.loc[max_div_idx]
+        div_val = row_max["abs_divergence"]
+        y_top = max(abs(row_max["actual_wk_change"]), abs(row_max["pred_wk_change"]))
+        ax2.annotate(
+            f"Max \u0394 {div_val:,.0f}\n{row_max['date'].strftime('%d %b')}",
+            xy=(row_max["date"], y_top),
+            xytext=(row_max["date"], y_top + abs(y_top) * 0.45 + 1),
+            arrowprops=dict(arrowstyle="->", color="#C92A2A", lw=1.4),
+            fontsize=8, color="#C92A2A", ha="center",
+        )
+
+    # Legend proxies
+    from matplotlib.patches import Patch
+    ax2.legend(handles=[
+        Patch(facecolor="#E67700", alpha=0.80, label="Actual weekly \u0394"),
+        Patch(facecolor="#1971C2", alpha=0.80, label="Predicted weekly \u0394"),
+        Patch(facecolor="#C92A2A", alpha=0.90, label="Max pred/actual divergence"),
+    ], loc="upper left", fontsize=9)
+
     ax2.axhline(0, color="gray", linewidth=0.8, linestyle="-")
     ax2.xaxis.set_major_locator(mdates.MonthLocator())
     ax2.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
     ax2.tick_params(axis="x", rotation=35)
     ax2.set_ylabel("Weekly price change (USD)")
-    ax2.set_title("Weekly price fluctuation — actual vs predicted")
-    ax2.legend(loc="upper left", fontsize=9)
+    ax2.set_title("Weekly price fluctuation \u2014 actual vs predicted  (red = max divergence)")
     ax2.grid(alpha=0.25)
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])

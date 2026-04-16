@@ -140,6 +140,54 @@ python meta_historical_test.py --assets XBTUSD --n-estimators 300 --min-samples 
 ```
 Then add rolling-window retraining (e.g., trailing 365 days) for assets with high MAPE.
 
+## 2026-04-16 Model Comparison, Speed/Precision Trade-offs & System Tuning
+
+### Models available in this repo
+| Model          | File                        | Dependency          | Accuracy potential | Speed    |
+|----------------|-----------------------------|---------------------|--------------------|----------|
+| RandomForest   | `models/random_forest.py`   | scikit-learn (std)  | Baseline (good)    | Fast     |
+| XGBoost        | `models/xgboost.py`         | xgboost             | Better on tabular  | Moderate |
+| LSTM           | `models/LSTM.py`            | PyTorch/Keras       | High (sequential)  | Slow     |
+| GRU            | `models/GRU.py`             | PyTorch/Keras       | High (sequential)  | Slow     |
+| ARIMA          | `models/arima.py`           | statsmodels         | Good (univariate)  | Fast     |
+| SARIMAX        | `models/sarimax.py`         | statsmodels         | Good (+exogenous)  | Fast     |
+| Prophet        | `models/prophet.py`         | prophet             | Good (trend/season)| Moderate |
+| NeuralProphet  | `models/neural_prophet.py`  | neuralprophet       | Better than Prophet| Moderate |
+| Orbit          | `models/orbit.py`           | orbit-ml            | Bayesian, rigorous | Slow     |
+
+### Deterministic accuracy hierarchy (for daily crypto close prediction)
+1. **GRU / LSTM** — highest ceiling but require >2000 rows to converge; overfit on short series; slow to train.
+2. **XGBoost** (with RandomizedSearchCV) — best tree-model ceiling with tuned hyperparams; 5-fold CV adds ~5× overhead vs RF.
+3. **RandomForest** — strong baseline, deterministic with `random_state=42`, very fast. **Current `meta_historical_test.py` default.**
+4. **Prophet / NeuralProphet** — good for explicit trend/seasonality decomposition; slower first-fit; non-trivial to compare apples-to-apples.
+5. **ARIMA / SARIMAX** — competitive for stationary univariate series; XBT's regime shift would likely defeat them too.
+
+### Speed vs. Precision knobs (in `meta_historical_test.py`)
+| Parameter       | Default | Faster               | More precise                       |
+|-----------------|---------|----------------------|------------------------------------|
+| `--n-estimators`| 300     | 50–100 (coarse)      | 500–1000 (marginal gain above 300) |
+| `--lags`        | 30      | 7–14                 | 60–90 (needs more data)            |
+| `--wf-horizon`  | 14      | skip (`--wf-step` large) | 7 (finer intervals)            |
+| `--wf-step`     | 7       | 30                   | 3–5                                |
+| `n_jobs=-1`     | already set | —               | —                                  |
+
+### Is the system already tuned for max speed?
+**Partially yes:**
+- `RandomForestRegressor(n_jobs=-1)` uses all CPU cores — already optimal for RF.
+- XGBoost's `RandomizedSearchCV` with `n_jobs=-1` and `n_iter=20` keeps search tractable.
+- No GPU acceleration is configured (unnecessary at this data scale).
+- Main bottleneck at this scale (~3 years of daily data) is **API latency** (CoinGecko/CoinCap fallback chain), not model fitting.
+- At `n_estimators=300, lags=30`: ETH full run completes in <5s locally.
+
+**What would materially improve accuracy (not just speed):**
+1. Add rolling-window retraining (trailing 365 days) for assets with regime shift (XBT).
+2. Add `lag_volume` features alongside `lag_close` — volume often leads price changes.
+3. Try XGBoost with reduced `n_iter=10, cv=3` as a fast-but-better alternative to RF.
+4. For longer horizons (≥7 days ahead), switch to SARIMAX or Prophet for explicit seasonality.
+
+### Chart update (2026-04-16 session)
+- `save_price_prediction_plot()` now highlights the week of **maximum predicted-vs-actual divergence** in red on the weekly subplot, with annotation showing date and magnitude.
+
 ## Known Risks / Debt
 - Some model dependencies (e.g., legacy deep-learning/time-series libs) may require specific Python versions.
 - Metrics can include both directional and regression objectives; interpretation should be explicit in reports.
