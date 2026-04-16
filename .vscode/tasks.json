@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "run-2026-readme-example",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "scripts/run_2026_readme_example.ps1"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

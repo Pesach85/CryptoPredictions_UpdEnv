@@ -542,3 +542,45 @@ Implement per-asset hyperparameter routing in meta_historical_test.py:
 - Add --per-asset-config flag with JSON mapping asset ? {lags, features}
 - Default to: XBTUSD/LTCUSD: lags=30,close | ETHUSD/ADAUSD/BCHUSD: lags=14,close | SOLUSD: lags=14,focused
 - Re-run full 6-asset test with per-asset config to validate that automated routing matches manual strategic assignment
+
+## 2026-04-16 Documentation Update (README)
+
+### What changed
+- Added a new README section: "2026 Reproducible Example (How The Software Works)".
+- Documented deterministic commands for:
+	- 6-asset leakage-safe benchmark (`--train-cutoff 2025-12-31`)
+	- Heterogeneous per-asset strategy (XBT/LTC lags=30 close, ETH/ADA/BCH lags=14 close, SOL lags=14 focused)
+- Embedded local 2026 chart examples directly in README:
+	- `outputs/meta_historical/2026-04-16/14-55-45/LTCUSD/price_prediction_chart.png`
+	- `outputs/meta_historical/2026-04-16/14-59-21/ETHUSD/price_prediction_chart.png`
+	- `outputs/meta_historical/best_asset_divergence_analysis.png`
+
+### Why
+- Provide a clear "how it works" walkthrough for 2026 outputs using real artifacts.
+- Improve reproducibility and onboarding by showing exact commands and expected result style.
+
+### Residual risk
+- README image links point to generated artifacts that may not exist in a fresh clone until the example commands are executed.
+
+### Next Best Decision
+Add a small script wrapper (or Make/Task target) that runs the 2026 example and validates that all README-referenced chart artifacts are present.
+
+## 2026-04-16 README Validation Wrapper Added
+
+### What changed
+- Added `scripts/run_2026_readme_example.ps1`.
+- Added VS Code task file `.vscode/tasks.json` with task label `run-2026-readme-example`.
+- Wrapper behavior:
+	- Default mode: fast validation only (checks README chart artifacts exist).
+	- `-RunAll` mode: reruns all 2026 example commands and rebuilds divergence chart, then validates artifacts.
+
+### Validation evidence
+- Executed fast mode successfully:
+	- `powershell -ExecutionPolicy Bypass -File scripts/run_2026_readme_example.ps1`
+- Confirmed all three README-referenced charts exist.
+
+### Residual risk
+- Full `-RunAll` mode can be time-consuming for walk-forward runs and may be interrupted on constrained environments.
+
+### Next Best Decision
+Keep README chart references aligned with deterministic output locations, or add a latest-run symlink/copy step if output timestamp folders change.
