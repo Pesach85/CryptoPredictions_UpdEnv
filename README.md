@@ -198,13 +198,21 @@ LTCUSD price prediction chart (daily actual vs predicted + weekly fluctuation):
 
 ![LTCUSD 2026 Price Prediction](outputs/meta_historical/2026-04-16/14-55-45/LTCUSD/price_prediction_chart.png)
 
+- Open file: [LTCUSD price_prediction_chart.png](./outputs/meta_historical/2026-04-16/14-55-45/LTCUSD/price_prediction_chart.png)
+- Open run folder: [outputs/meta_historical/2026-04-16/14-55-45/LTCUSD](./outputs/meta_historical/2026-04-16/14-55-45/LTCUSD)
+
 ETHUSD price prediction chart (example from direction-focused group):
 
 ![ETHUSD 2026 Price Prediction](outputs/meta_historical/2026-04-16/14-59-21/ETHUSD/price_prediction_chart.png)
 
+- Open file: [ETHUSD price_prediction_chart.png](./outputs/meta_historical/2026-04-16/14-59-21/ETHUSD/price_prediction_chart.png)
+- Open run folder: [outputs/meta_historical/2026-04-16/14-59-21/ETHUSD](./outputs/meta_historical/2026-04-16/14-59-21/ETHUSD)
+
 LTCUSD weekly divergence/convergence analysis (best-asset stability view):
 
 ![LTCUSD Weekly Divergence Analysis](outputs/meta_historical/best_asset_divergence_analysis.png)
+
+- Open file: [best_asset_divergence_analysis.png](./outputs/meta_historical/best_asset_divergence_analysis.png)
 
 ## 5) Where to Find Artifacts
 
@@ -214,6 +222,13 @@ LTCUSD weekly divergence/convergence analysis (best-asset stability view):
 	- `current_year_predictions.csv`
 	- `accuracy_time_trend.png`
 	- `price_prediction_chart.png`
+
+Direct artifact links (2026 example):
+
+- [LTC report JSON](./outputs/meta_historical/2026-04-16/14-55-45/LTCUSD/meta_historical_report.json)
+- [LTC predictions CSV](./outputs/meta_historical/2026-04-16/14-55-45/LTCUSD/current_year_predictions.csv)
+- [ETH report JSON](./outputs/meta_historical/2026-04-16/14-59-21/ETHUSD/meta_historical_report.json)
+- [ETH predictions CSV](./outputs/meta_historical/2026-04-16/14-59-21/ETHUSD/current_year_predictions.csv)
 
 ## 6) One-Command Validation For README Charts
 
@@ -232,6 +247,31 @@ powershell -ExecutionPolicy Bypass -File scripts/run_2026_readme_example.ps1 -Ru
 You can also run the VS Code task `run-2026-readme-example`.
 
 This gives a complete example of how to run, evaluate, and inspect outputs end-to-end for 2026.
+
+## Workspace Maintenance (Safe Cleanup)
+
+To reduce unnecessary storage and cache-related overhead safely, use the cleanup script below.
+By default it runs in dry-run mode, so no file is deleted until you add `-Execute`.
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/safe_cleanup.ps1
+```
+
+Apply cleanup:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/safe_cleanup.ps1 -Execute
+```
+
+What it cleans:
+- Python caches (`__pycache__`, `*.pyc`, `*.pyo`)
+- Old dated folders under `outputs/YYYY-MM-DD/` (retention-based)
+- Old dated folders under `outputs/meta_historical/YYYY-MM-DD/` (retention-based)
+- Empty directories left after cleanup
+
+Automation tasks are available in VS Code:
+- `safe-cleanup-dry-run`
+- `safe-cleanup-apply`
 
 
 # Report
