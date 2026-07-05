@@ -37,6 +37,20 @@
         "-Execute"
       ],
       "problemMatcher": []
+    },
+    {
+      "label": "projection-lab",
+      "type": "shell",
+      "command": "streamlit",
+      "args": ["run", "app_projection.py"],
+      "problemMatcher": []
+    },
+    {
+      "label": "projection-api",
+      "type": "shell",
+      "command": "uvicorn",
+      "args": ["api.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
+      "problemMatcher": []
     }
   ]
 }

@@ -101,7 +101,12 @@ def fetch_trending_symbols() -> list[str]:
 
 
 def resolve_coingecko_coin_id(asset_symbol: str) -> str:
-    symbol = asset_symbol.replace("USD", "").replace("USDT", "").upper().strip()
+    symbol = asset_symbol.upper().strip()
+    if symbol.endswith("USDT"):
+        symbol = symbol[:-4]
+    elif symbol.endswith("USD"):
+        symbol = symbol[:-3]
+    symbol = symbol.strip()
 
     symbol_to_id = {
         "BTC": "bitcoin",

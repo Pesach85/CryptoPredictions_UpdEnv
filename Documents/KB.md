@@ -619,3 +619,170 @@ Add a small script wrapper (or Make/Task target) that runs the 2026 example and 
 
 ### Next Best Decision
 Keep README chart references aligned with deterministic output locations, or add a latest-run symlink/copy step if output timestamp folders change.
+
+## 2026-07-05 Projection Lab & What-If Scenarios
+
+### What changed
+- Added `services/projection.py` — recursive RF forward projection with confidence bands (tree percentiles 10/50/90).
+- Added `config/asset_profiles.json` — heterogeneous per-asset strategy from KB (XBT/LTC lags=30 close; ETH/ADA/BCH lags=14 close; SOL lags=14 focused).
+- Added `app_projection.py` — Streamlit UI for projections and what-if scenarios (bear/bull shocks, volatility multiplier).
+- Added `project_forward.py` — headless CLI for projections and scenario comparison.
+- Added Cursor skills: `.cursor/skills/crypto-predictions-projection/`, `.cursor/skills/stealth-browser-market-data/`.
+- Added Cursor agents: `.cursor/agents/projection-scenario-analyst.agent.md`, `.cursor/agents/market-data-researcher.agent.md`.
+- Updated `Documents/AGENT_GUIDE.md` and `requirements.txt` (streamlit, joblib).
+
+### Validation evidence
+- `python project_forward.py --asset ETHUSD --horizon 14 --as-of 2023-02-17 --no-save` → end_forecast 1642.7 from last_observed 1638.3.
+- `python project_forward.py --asset SOLUSD --horizon 30 --scenarios "Bear,-20;Bull,15" --no-save` → focused profile applied, 2 scenarios generated.
+
+### Limitations
+- Recursive 1-step RF forecasts compound error beyond ~30–60 days.
+- What-if shocks are synthetic perturbations, not macro-economic models.
+- No live API refresh in projection path — uses local CSV only.
+
+### Next Best Decision
+Run `streamlit run app_projection.py` and validate fan chart + scenario compare tab with ETHUSD and one bear-shock scenario.
+
+## 2026-07-05 Deep Acquisition/Train Evaluation — Decision: DEFER
+
+### Executive decision
+**Non eseguire ora una deep acquisition + retrain completo.** I dati daily sono già estesi; il gap operativo è modesto (81 giorni). Le nuove capacità (Projection Lab, scenari what-if, agenti) portano più valore immediato di un re-tuning massivo dei profili RF. Il passo data-driven va fatto in **Fase 2** (calibrazione automatizzata), non come blocco monolitico adesso.
+
+### Motivazioni (evidence-based)
+
+#### 1 — Data layer: già sufficiente per sperimentazione, non obsoleto
+Audit locale 2026-07-05 su `data/*-1d-data.csv`:
+
+| Metrica | Valore |
+|---------|--------|
+| Asset daily | 19 |
+| Fine serie | **2026-04-15** (tutti) |
+| Gap vs oggi | **81 giorni** (uniforme) |
+| Duplicati timestamp | 0 su tutti i daily |
+| XBTUSD span | 2015-09-26 → 2026-04-15 (3855 righe) |
+| ETHUSD span | 2018-08-03 → 2026-04-15 (2813 righe) |
+
+> **KB superseded:** la sezione "All Bitmex-sourced files end on 2023-02-17" (2026-04-16 audit) non riflette più lo stato attuale. I CSV sono stati backfillati fino ad aprile 2026.
+
+**Conclusione data acquisition:** serve solo un **incremental refresh** (81 giorni), non una deep acquisition da zero. Priorità bassa rispetto a validare Projection Lab e scenari.
+
+#### 2 — Profile grid eval: profili attuali non ottimali su MAPE, ma delta marginale
+Script: `scripts/profile_grid_eval.py`  
+Metodo: grid `lags ∈ {14,30}` × `features ∈ {close, focused}`, holdout locale `> 2025-12-31` (105 giorni), `n_estimators=300`, criterio best = min MAPE.
+
+| Asset | Profilo attuale | Best MAPE (holdout) | Match | Δ MAPE vs attuale |
+|-------|-----------------|---------------------|-------|-------------------|
+| XBTUSD | 30, close | 14, focused (2.618%) | NO | ~0.10pp |
+| LTCUSD | 30, close | 30, focused (2.457%) | NO | ~0.07pp |
+| ETHUSD | 14, close | 30, close (2.912%) | NO | ~0.12pp |
+| ADAUSD | 14, close | 30, focused (3.252%) | NO | ~0.16pp |
+| BCHUSD | 14, close | 30, focused (2.597%) | NO | ~0.13pp |
+| **SOLUSD** | **14, focused** | **14, focused (4.281%)** | **YES** | — |
+| BNBUSD | default 30, close | 14, focused (2.238%) | NO | profilo mancante |
+| DOGEUSD | default | 14, close (3.318%) | NO | profilo mancante |
+| AVAXUSD | default | 14, close (3.142%) | NO | profilo mancante |
+
+**Osservazioni:**
+- Solo **SOLUSD** conferma il profilo eterogeneo originale su dati estesi.
+- I mismatch sono **piccoli** (<0.2pp MAPE): non giustificano un retrain massivo prima di walk-forward multi-obiettivo (MAPE + directional).
+- 13 asset su 19 usano ancora il profilo `default` — gap di copertura, non di qualità dati.
+- SOL resta l'asset più difficile (MAPE ~4.3% anche col best config).
+
+**Conclusione train:** un deep retrain ora produrrebbe profili leggermente diversi ma **non strutturalmente migliori** senza: (a) obiettivo multi-metrica, (b) walk-forward, (c) validazione su orizzonte projection (7–30d), non solo holdout flat.
+
+#### 3 — Nuove capacità acquisite: valutazione skill/agent
+
+| Capability | Stato | Valore immediato | Gap residuo |
+|------------|-------|------------------|-------------|
+| `ProjectionService` + fan chart | Operativo | Esplorazione futuri ipotetici | Error compounding >60d |
+| What-if scenarios (shock/vol) | Operativo | Stress test qualitativo | No macro/fundamental drivers |
+| `asset_profiles.json` | 6/19 asset | Eterogeneità codificata | 13 asset su default; 5/6 non ottimali su MAPE holdout |
+| Skill `crypto-predictions-projection` | Documentata | Onboarding agenti | Manca link a grid eval |
+| Skill `stealth-browser-market-data` | Documentata | Refresh dati anti-bot | MCP non installato in repo |
+| Agent `projection-scenario-analyst` | Attivo | Interpretazione scenari | Non ancora usato in run formale |
+| Agent `market-data-researcher` | Attivo | Estensione dataset | Nessun run di refresh 81d eseguito |
+
+### Cosa NON fare ora
+1. ~~Deep re-download completo di tutti i CSV~~ — dati già a 2026-04-15.
+2. ~~Grid search massivo con aggiornamento immediato di `asset_profiles.json`~~ — delta MAPE troppo piccolo; rischio overfit su 105 giorni holdout.
+3. ~~Integrare Prophet/Orbit nel projection path~~ — scope troppo ampio per questa iterazione.
+
+### Piano d'azione (3 fasi)
+
+#### Fase 1 — Consolidare capacità projection (settimana corrente)
+| # | Azione | Tool/Skill | Output atteso |
+|---|--------|------------|---------------|
+| 1.1 | Validare UI Projection Lab con ETH + bear shock | `app_projection.py`, skill projection | Screenshot/checklist scenario compare |
+| 1.2 | Eseguire 3 proiezioni CLI su asset profilati (XBT, ETH, SOL) | `project_forward.py` | Artifact in `outputs/projections/` |
+| 1.3 | Documentare limiti recursive forecast in UI (tooltip/disclaimer) | `app_projection.py` | UX chiara "simulation only" |
+
+#### Fase 2 — Data-driven profile calibration (dopo Fase 1)
+| # | Azione | Tool/Skill | Output atteso |
+|---|--------|------------|---------------|
+| 2.1 | Estendere `profile_grid_eval.py` → multi-obiettivo (MAPE + dir_acc + WF) | script + quant-research-gate agent | `config/asset_profiles_v2.json` draft |
+| 2.2 | Aggiungere profili per BNB, DOGE, AVAX (best da grid) | `config/asset_profiles.json` | 9/19 asset profilati |
+| 2.3 | Refresh incrementale 81 giorni (2026-04-16 → oggi) via API | `meta_historical_test.py` fetch | CSV aggiornati, KB entry |
+| 2.4 | Se API rate-limit: usare stealth-browser MCP | skill stealth-browser, agent market-data-researcher | OHLCV normalizzato in `data/` |
+
+#### Fase 3 — Integrazione predittiva avanzata (medio termine)
+| # | Azione | Output |
+|---|--------|--------|
+| 3.1 | FastAPI wrapper su `ProjectionService` | API `POST /project`, `POST /scenarios/compare` |
+| 3.2 | Scenario backtesting: path proiettati → `backtest/strategies.py` | Report simulazione strategia sotto shock |
+| 3.3 | Prophet/Orbit per orizzonti 90–365d con bande native | Fan chart long-horizon |
+| 3.4 | CI task: `profile_grid_eval.py` su gate assets | Regression su profili |
+
+### Matrice priorità (impatto × sforzo)
+
+```
+Alta priorità / basso sforzo:  Fase 1 (Projection Lab validation)
+Media priorità / medio sforzo: Fase 2.3 (refresh 81d) + Fase 2.1 (grid multi-obj)
+Bassa priorità / alto sforzo:  Fase 3 (API + Prophet + scenario backtest)
+Rimandato:                     Deep re-acquisition completa, retrain Hydra multi-model
+```
+
+### Rischi se si facesse deep train ORA
+- Overfit su 105 giorni holdout 2026 YTD.
+- Profili ottimizzati per MAPE peggiorano directional accuracy (es. XBT: lags=30 close ha dir_acc 0.538 vs focused 0.452).
+- Tempo investito in tuning RF invece che in validare Projection Lab e scenari what-if — le nuove capability resterebbero sotto-utilizzate.
+
+### Next Best Decision
+Eseguire **Fase 1.2**: `python project_forward.py --asset XBTUSD --horizon 30 --scenarios "Bear,-15"` e salvare artifact; confrontare fan chart con profilo attuale (30, close) vs override manuale (14, focused) per quantificare impatto visivo del mismatch profilo — senza ancora aggiornare `asset_profiles.json`.
+
+## 2026-07-05 Roadmap Implementation — 4 Features Shipped
+
+### 1 — Prophet long-horizon fan charts (90–365 days)
+- Module: `services/long_horizon.py`
+- Models: `prophet` (default), `orbit` (optional, requires `orbit-ml`)
+- API: `POST /api/v1/project/long`
+- UI: Projection Lab tab **Long horizon**
+- Validation: ETHUSD 90d Prophet → 90 rows, end forecast ~2808 USD
+
+### 2 — FastAPI external integration
+- Entry: `api/main.py` — run with `uvicorn api.main:app --reload --port 8000`
+- VS Code task: `projection-api`
+- Endpoints:
+  - `GET /api/v1/health`, `/assets`, `/assets/{asset}/profile`
+  - `POST /api/v1/project`, `/project/long`, `/scenarios/compare`
+  - `POST /api/v1/backtest/scenario`
+  - `POST /api/v1/data/refresh`, `/data/refresh/{asset}`
+  - `GET /api/v1/data/stealth-instructions/{asset}`
+
+### 3 — Scenario backtesting on projected paths
+- Module: `services/scenario_backtest.py`
+- CLI: `python scenario_backtest.py --asset ETHUSD --horizon 14 --scenarios "Bear,-10"`
+- Merges historical tail (60d) + projected path; runs `signal1` via `backtesting` lib
+- Validation: ETHUSD base return -16.2%, Bear scenario -33.3% (simulation only)
+
+### 4 — Data refresh (API + stealth-browser fallback)
+- Module: `services/data_refresh.py`
+- CLI: `scripts/refresh_market_data.py`
+- Chain: CryptoCompare OHLCV → CoinGecko/Yahoo close (synthetic OHLCV) → stealth-browser manual import
+- Validation: ETHUSD refresh +81 rows (2026-04-15 → 2026-07-05) via Yahoo fallback after CryptoCompare 401
+- Import path: `--import-csv <capture.csv>` for stealth-browser network captures
+
+### Dependencies added
+- `fastapi`, `uvicorn`, `pydantic` in `requirements.txt`
+
+### Next Best Decision
+Avviare FastAPI (`uvicorn api.main:app --port 8000`) e testare `POST /api/v1/project/long` con `{"asset":"ETHUSD","horizon_days":180,"model":"prophet"}`; poi refresh batch `--all` per allineare tutti i 19 asset a oggi.

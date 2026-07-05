@@ -1,0 +1,44 @@
+{
+  "default": {
+    "lags": 30,
+    "features": "close",
+    "n_estimators": 300,
+    "description": "Fallback profile when asset is not listed explicitly."
+  },
+  "XBTUSD": {
+    "lags": 30,
+    "features": "close",
+    "n_estimators": 300,
+    "description": "Established trending asset — magnitude-focused long lags."
+  },
+  "LTCUSD": {
+    "lags": 30,
+    "features": "close",
+    "n_estimators": 300,
+    "description": "Established trending asset — magnitude-focused long lags."
+  },
+  "ETHUSD": {
+    "lags": 14,
+    "features": "close",
+    "n_estimators": 300,
+    "description": "Volatile asset — shorter lags for directional signal."
+  },
+  "ADAUSD": {
+    "lags": 14,
+    "features": "close",
+    "n_estimators": 300,
+    "description": "Volatile asset — shorter lags for directional signal."
+  },
+  "BCHUSD": {
+    "lags": 14,
+    "features": "close",
+    "n_estimators": 300,
+    "description": "Volatile asset — shorter lags for directional signal."
+  },
+  "SOLUSD": {
+    "lags": 14,
+    "features": "focused",
+    "n_estimators": 300,
+    "description": "High-beta asset — focused features with short lags."
+  }
+}

@@ -18,6 +18,7 @@ outputs/
 # Backup files
 *_backup.*
 *.bak
+*.bak_*
 
 # Environment / secrets — never commit credentials
 .env
