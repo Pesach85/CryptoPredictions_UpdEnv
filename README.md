@@ -1,5 +1,55 @@
 # CryptoPredictions
 
+[![License](https://img.shields.io/badge/license-open--source-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](requirements.txt)
+[![GitHub](https://img.shields.io/badge/GitHub-public-brightgreen.svg)](https://github.com/Pesach85/CryptoPredictions_UpdEnv)
+
+**Open-source research toolbox** for cryptocurrency price forecasting, model benchmarking, forward projections, and what-if scenario analysis.
+
+> **Research only — not investment advice.**  
+> All outputs are experimental simulations for software validation and predictive research.
+
+**Repository:** [github.com/Pesach85/CryptoPredictions_UpdEnv](https://github.com/Pesach85/CryptoPredictions_UpdEnv) (public)
+
+---
+
+## Quick Start
+
+```bash
+git clone https://github.com/Pesach85/CryptoPredictions_UpdEnv.git
+cd CryptoPredictions_UpdEnv
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+```
+
+| What you want | Command |
+|---------------|---------|
+| Projection Lab (UI) | `streamlit run app_projection.py` |
+| Forward projection CLI | `python project_forward.py --asset ETHUSD --horizon 30` |
+| Long-horizon fan chart (Prophet) | via API `POST /api/v1/project/long` or Projection Lab tab |
+| Scenario backtest | `python scenario_backtest.py --asset ETHUSD --horizon 30` |
+| Refresh market data | `python scripts/refresh_market_data.py --status` |
+| REST API | `uvicorn api.main:app --reload --port 8000` |
+| Classic train pipeline | `python train.py` |
+| Leakage-safe benchmark | `python meta_historical_test.py --assets ETHUSD,XBTUSD --train-cutoff 2025-12-31` |
+
+Daily datasets cover **19 assets**, updated through **2026-07-05**.
+
+---
+
+## What's New (2026)
+
+- **Projection Lab** — Streamlit UI for forward forecasts and what-if scenarios (bear/bull shocks, volatility)
+- **FastAPI** — external integrations (`/api/v1/project`, `/project/long`, `/backtest/scenario`, `/data/refresh`)
+- **Prophet long-horizon** — fan charts for 90–365 day horizons with native uncertainty bands
+- **Scenario backtesting** — simulate `signal1` strategy on projected price paths
+- **Yahoo-first data refresh** — incremental OHLCV update with stealth-browser JSON import fallback
+- **Per-asset profiles** — heterogeneous model config in `config/asset_profiles.json`
+- **Cursor skills & agents** — `.cursor/skills/` and `.cursor/agents/` for AI-assisted workflows
+
+---
+
 CryptoPredictions is an open-source toolbox for price prediction/forecasting a sequence of prices of cryptocurrencies given an observed sequence.
 
 ## Research-Only Scope
@@ -29,7 +79,7 @@ The exclusive benefits of CryptoPredictions are:
 
 * At CryptoPredictions, we do not fetch indicators from different websites, because it leads to problems such as null rows and the lack of information on indicators for all cryptocurrencies. Instead, CryptoPredictions calculates them in a way that doesn't carry the mentioned problems and could be generalized to other datasets.
 
-* We hope that it will inspire you to develop even better projects, and we look forward to your feedback. If you find CryptoPredictions useful and valuable, we would greatly appreciate it if you could take a moment to give it a star on Github. Your support would mean a lot to us and help us to continue improving the library for the community :)
+* We hope that it will inspire you to develop even better projects, and we look forward to your feedback. If you find CryptoPredictions useful and valuable, we would greatly appreciate it if you could take a moment to give it a **star** on GitHub — it helps others discover the project and motivates continued development.
  
 
 # Overview
@@ -38,8 +88,16 @@ The main parts of the library are as follows:
 
 ```
 CryptoPredictions
-├── train.py                            -- script to train the models, runs factory.trainer.py
-├── backtester.py                       -- script to calculate the profit by selecting a strategy to buy and sell based on the prediction
+├── train.py                            -- Hydra training pipeline
+├── backtester.py                       -- strategy backtesting simulation
+├── meta_historical_test.py             -- leakage-safe validation CLI
+├── app_projection.py                   -- Projection Lab (Streamlit UI)
+├── project_forward.py                  -- forward projection CLI
+├── scenario_backtest.py                -- scenario backtest CLI
+├── api/main.py                         -- FastAPI REST server
+├── services/                           -- projection, long-horizon, data refresh
+├── config/asset_profiles.json          -- per-asset model profiles
+├── scripts/refresh_market_data.py      -- OHLCV data refresh
 ├── models                    
 │   ├── orbit.py
 |   ├── prophet.py
@@ -285,6 +343,39 @@ To gain a better understanding of the models, metrics, and validation method use
 
 <img src="https://user-images.githubusercontent.com/45646480/233836824-13a268e7-9464-46df-95bd-1ee8631519a8.jpg" data-canonical-src="https://user-images.githubusercontent.com/45646480/233836824-13a268e7-9464-46df-95bd-1ee8631519a8.jpg" width="540" />
 
+---
 
+## Support the Project
+
+CryptoPredictions is **free and open source**. If this toolbox saves you time in research, prototyping, or experimentation, you can support its continued development in any of these ways:
+
+| Way | How |
+|-----|-----|
+| **Star the repo** | [Give a star on GitHub](https://github.com/Pesach85/CryptoPredictions_UpdEnv) — helps visibility |
+| **Share feedback** | Open an issue or pull request with improvements, bugs, or ideas |
+| **Spread the word** | Mention the project to colleagues working on quant/crypto research |
+
+### Voluntary donation (Solana)
+
+Donations are **entirely optional** and not required to use any feature. They help cover maintenance time, data infrastructure, and future enhancements (projection API, dataset refresh, model calibration).
+
+**Network:** Solana (SOL)  
+**Address:**
+
+```
+72HjLpn8oTZnSdTxPu5ffZijF2VFxxKpjpkVcsDMEWaY
+```
+
+Before sending, always verify the address character by character. Donations are non-refundable and unrelated to any financial product, signal, or investment service offered by this repository.
+
+Thank you for using CryptoPredictions and for any support you choose to give.
+
+---
+
+## License & Disclaimer
+
+This project is provided for **educational and research purposes**.  
+Backtesting and projections are **simulations only** — not investment advice.  
+Use at your own risk. Past model performance does not guarantee future results.
 
 
