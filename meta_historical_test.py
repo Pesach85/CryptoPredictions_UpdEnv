@@ -20,7 +20,13 @@ from core.features import (
     compute_ta_features,
 )
 from core.io_ohlcv import load_local_close_series, load_local_ohlcv
-from core.market_ids import COINGECKO_SYMBOL_TO_ID, parse_assets, sanitize_symbol, symbol_base
+from core.market_ids import (
+    COINGECKO_SYMBOL_TO_ID,
+    parse_assets,
+    resolve_coingecko_coin_id,
+    sanitize_symbol,
+    symbol_base,
+)
 from core.metrics_ts import all_scores, build_naive_prediction, directional_scores, regression_scores
 
 
@@ -48,24 +54,6 @@ def fetch_trending_symbols() -> list[str]:
     response.raise_for_status()
     payload = response.json()
     return [str(item.get("symbol", "")).upper() for item in payload.get("data", []) if item.get("symbol")]
-
-
-def resolve_coingecko_coin_id(asset_symbol: str) -> str:
-    symbol = symbol_base(asset_symbol)
-
-    if symbol in COINGECKO_SYMBOL_TO_ID:
-        return COINGECKO_SYMBOL_TO_ID[symbol]
-
-    search_url = "https://api.coingecko.com/api/v3/search"
-    response = requests.get(search_url, params={"query": symbol}, timeout=30)
-    response.raise_for_status()
-    payload = response.json()
-
-    for coin in payload.get("coins", []):
-        if str(coin.get("symbol", "")).upper() == symbol:
-            return str(coin["id"])
-
-    raise ValueError(f"Unable to resolve CoinGecko id for symbol: {asset_symbol}")
 
 
 def coin_id_to_symbol(coin_id: str) -> str:

@@ -32,6 +32,7 @@ Do not provide investment advice.
 ## Validation Minimum
 - Run static error checks or one executable baseline training run.
 - Report metric outputs and limitations.
+- CI smoke (`.github/workflows/ci-smoke.yml`): `pytest tests/test_core.py`, `project_forward.py` smoke, `refresh_market_data.py --status`. Needs `PYTHONPATH=.`; refresh must not pull heavy meta deps (CoinGecko id resolve is in `core/market_ids.py`).
 
 ## Non-Investment Constraint
 All outputs must be framed as experimental predictive analysis and software validation.

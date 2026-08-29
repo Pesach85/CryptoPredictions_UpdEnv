@@ -72,13 +72,14 @@ Schedule weekly `python scripts/refresh_market_data.py --retry-failed` and watch
 
 ### Phase D — signals + CI
 - Shared `core/signals.compute_signal1` used by scenario BT + Hydra `Strategies.signal1`.
-- `.github/workflows/ci-smoke.yml` on push/PR to `main`.
+- `.github/workflows/ci-smoke.yml` on push/PR to `main` (`PYTHONPATH=.`).
+- `resolve_coingecko_coin_id` lives in `core/market_ids.py` so refresh/status smoke does **not** import `matplotlib` via `meta_historical_test`.
 
 ### Phase E — ops docs
 - KB Current State updated; README date + What's New; Aug-15 canvas for low-cog visualization.
 
 ### Next Best Decision
-Confirm CI green on GitHub after push; optional weekly refresh cron outside repo.
+Optional: weekly cron `python scripts/refresh_market_data.py --retry-failed` (outside repo); keep CI green on each push.
 
 ---
 
