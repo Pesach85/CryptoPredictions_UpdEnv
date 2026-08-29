@@ -15,52 +15,97 @@
 | **Legacy Hydra** | `train.py`, `backtester.py`, `models/`, `data_loader/`, `factory/` | Multi-model train + classic backtest |
 | **Product / meta** | `meta_historical_test.py`, `services/`, `app_projection.py`, `api/main.py` | Leakage-safe RF validation, projections, what-if, FastAPI, data refresh |
 
-Product stack depends on `meta_historical_test.py` as a shared library (god-module risk). Hydra and product stacks do **not** share feature engineering or metrics.
+Product stack shares `core/` with services; Hydra still has parallel feature/metrics paths (optional later unification).
 
 ### Data
-- Daily CSVs: **19 assets**, last bar **2026-08-29** (refreshed 2026-08-29 via Yahoo-first pipeline).
+- Daily CSVs: **19 assets**, last bar **2026-08-29** (Yahoo-first refresh).
 - Earlier KB claims of end=`2026-04-15` or Bitmex-only `2023-02-17` are **superseded**.
 
 ### Profiles (`config/asset_profiles.json`)
-- Explicit: XBT/LTC (30, close); ETH/ADA/BCH (14, close); SOL (14, focused); **BNB (14, focused); DOGE/AVAX (14, close)**.
-- Coverage: **9/19** assets; others use default (30, close).
-- Profiles apply to projection path; meta CLI: `python meta_historical_test.py --use-profiles ...`.
+- Explicit: XBT/LTC (30, close); ETH/ADA/BCH (14, close); SOL (14, focused); BNB (14, focused); DOGE/AVAX (14, close).
+- Coverage: **9/19**; others default (30, close). Meta CLI: `--use-profiles`.
 
-### Shared core (refactor Phase A — shipped 2026-08-29)
-- `core/io_ohlcv.py`, `core/features.py`, `core/metrics_ts.py`, `core/signals.py`, `core/market_ids.py`
-- `meta_historical_test.py` re-exports + API fetchers; services import from `core/`
-- Tests: `tests/test_core.py` · CI: `.github/workflows/ci-smoke.yml`
+### Decision gate (2026-08-29) — **CLOSED: no new model classes for accuracy**
+Evidence from August multi-model paths + Aug-15 coherence + historical n_estimators A/B:
+- **Do not** add LSTM/GRU/NeuralProphet/etc. expecting higher multi-day accuracy on OHLCV-only data.
+- **Do** keep the stack as-is and **refresh/retrain on new bars** (ops cadence).
+- Full rationale: section **2026-08-29 Decision Gate — Models vs Data** below.
 
-### Shipped vs pending
+### Shipped vs deferred
 
 | Item | Status |
 |------|--------|
-| Projection Lab + what-if | Shipped |
-| FastAPI | Shipped |
-| Prophet long-horizon | Shipped |
-| Scenario backtest on projected paths | Shipped |
-| Yahoo-first data refresh + stealth import | Shipped |
-| `core/` extract + golden tests + CI smoke | **Shipped 2026-08-29** |
-| Recursive close-mode O(lags) features + regime caution | **Shipped 2026-08-29** |
-| Meta `--use-profiles` + BNB/DOGE/AVAX profiles | **Shipped 2026-08-29** |
-| Multi-model historical path compare (UI/API/CLI) | **Shipped 2026-08-29** |
-| Full Hydra↔meta feature unification | Optional later |
-| Multi-obj WF profile recalibration | Pending |
-
-### Validated code hygiene (2026-08-29)
-- Removed unreachable dead code after `build_supervised_focused` return.
-- Deterministic Aug-15 PRE/POST coherence analysis: `scripts/aug15_coherence_analysis.py` → `outputs/analyses/aug15_coherence_2026.json`.
-- `pytest tests/test_core.py` green (core unit tests).
+| Projection Lab + what-if + Model compare | Shipped |
+| FastAPI (`/paths/compare` included) | Shipped |
+| Prophet long-horizon / scenario BT / data refresh | Shipped |
+| `core/` + CI smoke | Shipped |
+| **New model families for accuracy uplift** | **Closed — not justified** |
+| Full Hydra↔meta feature unification | Deferred (hygiene only) |
+| Multi-obj WF profile recalibration | Deferred (low ROI vs data cadence) |
+| Non-price features (macro/on-chain) | Research track — not opened |
 
 ### Next Best Decision
-Schedule weekly `python scripts/refresh_market_data.py --retry-failed` and watch CI smoke on `main` after each push.
+Run weekly `python scripts/refresh_market_data.py --retry-failed` (or cron). After each refresh, optionally re-check one major with Model compare Fast on the last 14–30 days. No model-expansion sprint.
+
+## 2026-08-29 Decision Gate — Models vs Data
+
+### Question
+Can new models raise predictive accuracy further, or should we stop and train/refresh on new data?
+
+### Verdict (deterministic)
+**Stop model expansion for accuracy. Prefer data refresh + retrain of the current stack.**
+
+Simulation framing only — not investment advice.
+
+### Evidence
+
+| Evidence | Result | Implication |
+|----------|--------|-------------|
+| Aug 2026 ETH path (train ≤ Jul 31) | Actual **+32%**; RF recursive / Naive / ARIMA ~flat (**MAPE ~8–9%**, end gap **~−24%**); Prophet **MAPE ~27%** (level bias); RF≈XGB **1-step MAPE ~2%** | Multi-step failure is **shared across model families**; 1-step tree ceiling already ~2% |
+| Aug 2026 BTC path | Actual **+24%**; multi-step **−17…−19%** end gap; RF 1-step **~1.8%** MAPE; Prophet **~36%** | Same pattern as ETH — not an ETH-specific bug |
+| Aug 15 ±15d coherence | PRE 1-step coherent; POST recursive misses rally (**−10…−38 pp** return gap) | Recursive compounding + regime break, not “wrong RF hyperparameters” |
+| n_estimators 300→500 (2026-04) | XBT/SOL MAPE unchanged | Tree **capacity** not the bottleneck |
+| Feature set | Close/OHLCV lags only; no macro/on-chain | Any new model sees the **same information**; regime jumps remain unpredictable from lags alone |
+
+### Why “add models” fails the bar
+1. **XGBoost ≈ RF** on August 1-step → next tree model adds noise, not signal.
+2. **ARIMA ≈ Naive** on multi-step August → classical univariate does not recover the rally.
+3. **Prophet** already in-repo and worse on August MAPE (bias), useful only as **long-horizon fan chart**, not as accuracy winner.
+4. **LSTM/GRU/Orbit/NeuralProphet** would still train on lag-OHLCV; they do not inject regime information. High cost, no evidence they beat ~2% 1-step or fix recursive multi-day paths under the Aug stress test.
+
+### Why “more data / retrain” is the right ops move
+1. Data already extended to **2026-08-29**; staleness was a past failure mode — **refresh cadence** prevents regression.
+2. Retraining RF/XGB on the latest bars keeps 1-step validators honest without new architecture.
+3. Accuracy claims must stay split by task:
+   - **1-step / short validation** → RF (or XGB) with profiles — already usable (~2% MAPE Aug).
+   - **Multi-day recursive projection** → experimental; expect under-reaction on breaks (`regime_shift_caution`).
+   - **Long horizon** → Prophet bands, illustrative only.
+
+### Operational plan (maintenance — not a build sprint)
+
+| Priority | Action | Done when |
+|----------|--------|-----------|
+| P0 | Weekly OHLCV refresh (`scripts/refresh_market_data.py --retry-failed`) | gap_days≈0 on majors |
+| P0 | Keep CI smoke green on `main` | Actions pass |
+| P1 | After refresh: Model compare Fast on ETH or BTC last 14–30d | MAPE logged; no gate breach assumed |
+| P2 | Optional meta retrain on refreshed CSVs for gate assets | Artifacts under `outputs/meta_historical` |
+| — | New model classes / DL stack | **Not scheduled** |
+| — | Multi-obj profile grid | Deferred until a feature-set change exists |
+
+### Closure statement
+The 2026-08-29 research loop (refactor A–E, Aug coherence, multi-model August charts, Model compare UI) is **complete**. Further accuracy work without new **features** (beyond price lags) is expected to yield **diminishing returns**. Repo mode: **maintain data + validate**, not expand model zoo.
+
+### Next Best Decision
+Schedule the weekly refresh; do not open an LSTM/GRU accuracy project.
+
+---
 
 ## 2026-08-29 Incremental Refactor Phases A–E (shipped)
 
 ### Phase A — core extract
 - Added `core/` package; `meta_historical_test.py` thin CLI + API fetchers.
 - Services/scripts import from `core/`.
-- Golden tests: `tests/test_core.py` (6 passed).
+- Golden tests: `tests/test_core.py`.
 
 ### Phase B — projection performance + caution
 - Close-mode recursive path uses O(lags) `feature_row_from_close_tail` (no full rebuild).
@@ -91,7 +136,7 @@ Schedule weekly `python scripts/refresh_market_data.py --retry-failed` and watch
 - CI: fast multi-model CLI smoke + `test_multi_model_paths_fast_eth`.
 
 ### Next Best Decision
-Optional weekly cron `python scripts/refresh_market_data.py --retry-failed`; keep CI green on `main`.
+Superseded by Decision Gate above — weekly refresh, no model-expansion sprint.
 
 ---
 

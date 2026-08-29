@@ -29,6 +29,7 @@ Do not provide investment advice.
 3. Prefer minimal, testable code changes.
 4. Update `Documents/KB.md` after non-trivial modifications.
 5. Always include a `Next Best Decision` section with exactly one immediate, testable action.
+6. Respect the 2026-08-29 Decision Gate: do **not** open new model-family accuracy projects without new features; prefer data refresh + retrain.
 
 ## Validation Minimum
 - Run static error checks or one executable baseline training run.
