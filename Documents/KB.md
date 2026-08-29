@@ -78,8 +78,14 @@ Schedule weekly `python scripts/refresh_market_data.py --retry-failed` and watch
 ### Phase E — ops docs
 - KB Current State updated; README date + What's New; Aug-15 canvas for low-cog visualization.
 
+### August 2026 multi-model path chart (shipped)
+- Script: `scripts/august_multi_model_paths.py` → `outputs/analyses/august_2026_paths_<ASSET>.{csv,json}`
+- Protocol: train ≤ `2026-07-31`; compare Aug 1→last bar vs **Actual**, Naive, RF recursive, RF 1-step, XGBoost 1-step, ARIMA, Prophet.
+- ETH finding: actual **+32%**; multi-step RF/ARIMA/Naive stay ~flat (−24% end gap); 1-step RF/XGB MAPE ~2%; Prophet MAPE ~27% (level bias).
+- Canvas: `august-eth-model-paths.canvas.tsx` (low-cog LineCharts).
+
 ### Next Best Decision
-Optional: weekly cron `python scripts/refresh_market_data.py --retry-failed` (outside repo). CI smoke on `main` is green (`69b0d63`).
+Optional: `python scripts/august_multi_model_paths.py XBTUSD` for the same August overlay on BTC; or weekly data-refresh cron.
 
 ---
 

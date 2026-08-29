@@ -48,6 +48,7 @@ Daily datasets cover **19 assets**, updated through **2026-08-29**.
 - **Per-asset profiles** — `config/asset_profiles.json` (9 assets) · meta CLI `--use-profiles`
 - **Shared `core/` package** — I/O, features, metrics, signals used by meta + projection
 - **CI smoke** — GitHub Actions unit tests + projection CLI on `main`
+- **August multi-model paths** — real vs Naive/RF/XGBoost/ARIMA/Prophet (`scripts/august_multi_model_paths.py`)
 - **Cursor skills & agents** — `.cursor/skills/` and `.cursor/agents/` for AI-assisted workflows
 
 ---
@@ -103,6 +104,7 @@ CryptoPredictions
 ├── config/asset_profiles.json          -- per-asset model profiles
 ├── scripts/refresh_market_data.py      -- OHLCV data refresh
 ├── scripts/aug15_coherence_analysis.py -- PRE/POST Aug-15 coherence study
+├── scripts/august_multi_model_paths.py -- Aug real vs multi-model price paths
 ├── models                    
 │   ├── orbit.py
 |   ├── prophet.py
