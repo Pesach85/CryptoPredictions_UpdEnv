@@ -43,6 +43,7 @@ Product stack depends on `meta_historical_test.py` as a shared library (god-modu
 | `core/` extract + golden tests + CI smoke | **Shipped 2026-08-29** |
 | Recursive close-mode O(lags) features + regime caution | **Shipped 2026-08-29** |
 | Meta `--use-profiles` + BNB/DOGE/AVAX profiles | **Shipped 2026-08-29** |
+| Multi-model historical path compare (UI/API/CLI) | **Shipped 2026-08-29** |
 | Full Hydra↔meta feature unification | Optional later |
 | Multi-obj WF profile recalibration | Pending |
 
@@ -79,13 +80,18 @@ Schedule weekly `python scripts/refresh_market_data.py --retry-failed` and watch
 - KB Current State updated; README date + What's New; Aug-15 canvas for low-cog visualization.
 
 ### August 2026 multi-model path chart (shipped)
-- Script: `scripts/august_multi_model_paths.py` → `outputs/analyses/august_2026_paths_<ASSET>.{csv,json}`
-- Protocol: train ≤ `2026-07-31`; compare Aug 1→last bar vs **Actual**, Naive, RF recursive, RF 1-step, XGBoost 1-step, ARIMA, Prophet.
-- ETH finding: actual **+32%**; multi-step RF/ARIMA/Naive stay ~flat (−24% end gap); 1-step RF/XGB MAPE ~2%; Prophet MAPE ~27% (level bias).
-- Canvas: `august-eth-model-paths.canvas.tsx` (low-cog LineCharts).
+- Service: `services/multi_model_paths.py` (`MultiModelPathService`)
+- UI: Projection Lab tab **Model compare** (`streamlit run app_projection.py`)
+- API: `POST /api/v1/paths/compare` (`fast=true` for Naive+RF only)
+- CLI: `python scripts/august_multi_model_paths.py ETHUSD [--fast] [--start|--end]`
+- Protocol: train ≤ day before window start; overlay Actual / Naive / RF recursive / RF·XGB 1-step / ARIMA / Prophet.
+- ETH Aug: **+32%** actual; multi-step flat (−24% end gap); 1-step MAPE ~2%; Prophet MAPE ~27%.
+- BTC Aug: **+24%** actual; multi-step −17…−19%; RF 1-step MAPE ~1.8%; Prophet MAPE ~36%.
+- Canvas: `august-eth-model-paths.canvas.tsx`, `august-btc-model-paths.canvas.tsx`.
+- CI: fast multi-model CLI smoke + `test_multi_model_paths_fast_eth`.
 
 ### Next Best Decision
-Optional: `python scripts/august_multi_model_paths.py XBTUSD` for the same August overlay on BTC; or weekly data-refresh cron.
+Optional weekly cron `python scripts/refresh_market_data.py --retry-failed`; keep CI green on `main`.
 
 ---
 

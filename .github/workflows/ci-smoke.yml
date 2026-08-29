@@ -26,6 +26,12 @@ jobs:
         env:
           PYTHONPATH: .
         run: python project_forward.py --asset ETHUSD --horizon 7 --as-of 2026-08-15 --no-save
+      - name: CLI smoke multi-model paths (fast)
+        env:
+          PYTHONPATH: .
+        run: >
+          python scripts/august_multi_model_paths.py ETHUSD
+          --start 2026-08-01 --end 2026-08-10 --fast --no-persist
       - name: Refresh status
         env:
           PYTHONPATH: .

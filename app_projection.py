@@ -15,10 +15,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
-from services.projection import ProjectionService, ScenarioSpec
-from services.long_horizon import LongHorizonService
-from services.scenario_backtest import ScenarioBacktestService
 from services.data_refresh import refresh_asset_via_api, stealth_browser_instructions
+from services.long_horizon import LongHorizonService
+from services.multi_model_paths import ALL_MODELS, FAST_MODELS, MultiModelPathService
+from services.projection import ProjectionService, ScenarioSpec
+from services.scenario_backtest import ScenarioBacktestService
 
 st.set_page_config(
     page_title="CryptoPredictions — Projection Lab",
@@ -30,6 +31,17 @@ DISCLAIMER = (
     "**Simulation only — not investment advice.** "
     "Projections are experimental model outputs for research and software validation."
 )
+
+PATH_COLORS = {
+    "actual": "#1971C2",
+    "prophet": "#E67700",
+    "rf_recursive": "#C92A2A",
+    "naive": "#868E96",
+    "arima": "#ADB5BD",
+    "rf_1step": "#2F9E44",
+    "xgboost_1step": "#F08C00",
+    "gbm_1step": "#F08C00",
+}
 
 
 @st.cache_resource
@@ -47,8 +59,37 @@ def get_backtest_service() -> ScenarioBacktestService:
     return ScenarioBacktestService()
 
 
+@st.cache_resource
+def get_multi_model_service() -> MultiModelPathService:
+    return MultiModelPathService()
+
+
 def render_disclaimer():
     st.warning(DISCLAIMER)
+
+
+def plot_multi_model_paths(frame: pd.DataFrame, title: str, columns: list[str]):
+    fig, ax = plt.subplots(figsize=(12, 5), dpi=120)
+    for col in columns:
+        if col not in frame.columns:
+            continue
+        ax.plot(
+            frame.index,
+            frame[col],
+            label=col,
+            linewidth=2.4 if col == "actual" else 1.6,
+            linestyle="-" if col == "actual" else "--",
+            color=PATH_COLORS.get(col),
+        )
+    ax.set_title(title)
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Price (USD)")
+    ax.legend(loc="best", fontsize=9)
+    ax.grid(alpha=0.25)
+    plt.xticks(rotation=30)
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
 
 
 def plot_projection(result, show_scenarios: bool = True):
@@ -128,9 +169,8 @@ def main():
                 index=["close", "focused", "enhanced"].index(profile["features"]),
             )
             n_estimators = st.number_input(
-                "n_estimators", min_value=100, max_value=1000, value=profile["n_estimators"], step=50
+                "n_estimators", min_value=50, max_value=800, value=profile["n_estimators"], step=50
             )
-
         st.header("What-If Scenarios")
         enable_bear = st.checkbox("Bear shock (-20%)", value=False)
         bear_day = st.number_input("Bear shock day", min_value=1, max_value=horizon_days, value=1)
@@ -139,8 +179,24 @@ def main():
         vol_mult = st.slider("Volatility multiplier", min_value=0.5, max_value=2.0, value=1.0, step=0.1)
         run_btn = st.button("Run projection", type="primary", use_container_width=True)
 
-    tab_proj, tab_compare, tab_long, tab_backtest, tab_data, tab_artifacts = st.tabs(
-        ["Projection", "Scenario compare", "Long horizon", "Scenario backtest", "Data refresh", "Artifacts"]
+    (
+        tab_proj,
+        tab_compare,
+        tab_models,
+        tab_long,
+        tab_backtest,
+        tab_data,
+        tab_artifacts,
+    ) = st.tabs(
+        [
+            "Projection",
+            "Scenario compare",
+            "Model compare",
+            "Long horizon",
+            "Scenario backtest",
+            "Data refresh",
+            "Artifacts",
+        ]
     )
 
     if run_btn:
@@ -160,7 +216,7 @@ def main():
 
         with st.spinner(f"Projecting {asset} for {horizon_days} days..."):
             try:
-                result = service.project_forward(
+                proj = service.project_forward(
                     asset_symbol=asset,
                     horizon_days=horizon_days,
                     as_of_date=as_of_date,
@@ -169,76 +225,220 @@ def main():
                     n_estimators=int(n_estimators),
                     scenarios=scenarios,
                 )
-                st.session_state["last_result"] = result
+                st.session_state["last_result"] = proj
             except Exception as exc:
                 st.error(f"Projection failed: {exc}")
-                return
 
     result = st.session_state.get("last_result")
+
+    with tab_models:
+        st.subheader("Real vs multi-model paths")
+        st.caption(
+            "Train on history before the window start, then overlay Actual, Naive, RF recursive, "
+            "RF/XGBoost 1-step, ARIMA, Prophet. Uses the sidebar asset. Simulation only."
+        )
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            mm_start = st.date_input(
+                "Window start",
+                value=datetime(2026, 8, 1),
+                key="mm_start",
+            ).isoformat()
+        with col_b:
+            mm_end = st.date_input(
+                "Window end",
+                value=datetime(2026, 8, 29),
+                key="mm_end",
+            ).isoformat()
+        with col_c:
+            mm_mode = st.selectbox(
+                "Model set",
+                ["Full (all available)", "Fast (Naive + RF)", "Custom"],
+                key="mm_mode",
+            )
+        mm_custom: list[str] = []
+        if mm_mode == "Custom":
+            mm_custom = st.multiselect(
+                "Models",
+                list(ALL_MODELS),
+                default=list(FAST_MODELS),
+                key="mm_custom",
+            )
+        if st.button("Run model compare", type="primary", key="run_mm"):
+            if mm_mode == "Fast (Naive + RF)":
+                models = FAST_MODELS
+            elif mm_mode == "Custom":
+                models = tuple(mm_custom) if mm_custom else FAST_MODELS
+            else:
+                models = None
+            with st.spinner(f"Fitting models for {asset} ({mm_start} → {mm_end})..."):
+                try:
+                    mm_result = get_multi_model_service().run(
+                        asset_symbol=asset,
+                        window_start=mm_start,
+                        window_end=mm_end,
+                        models=models,
+                        persist=True,
+                    )
+                    st.session_state["mm_result"] = mm_result
+                except Exception as exc:
+                    st.error(str(exc))
+
+        mm_result = st.session_state.get("mm_result")
+        if mm_result is None:
+            st.info("Pick a window and click **Run model compare**.")
+        else:
+            frame = mm_result.frame
+            summary = mm_result.to_dict()
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Actual return", f"{summary['actual_return_pct']:+.1f}%")
+            best = (
+                min(mm_result.metrics.items(), key=lambda kv: kv[1]["MAPE"])
+                if mm_result.metrics
+                else None
+            )
+            m2.metric("Best MAPE", f"{best[0]} · {best[1]['MAPE']:.1f}%" if best else "n/a")
+            m3.metric("Cutoff (train ≤)", mm_result.cutoff)
+            if mm_result.metadata.get("skipped_models"):
+                st.caption(
+                    "Skipped (missing deps): " + ", ".join(mm_result.metadata["skipped_models"])
+                )
+
+            path_cols = [
+                c for c in ["actual", "prophet", "rf_recursive", "naive"] if c in frame.columns
+            ]
+            plot_multi_model_paths(
+                frame,
+                f"{mm_result.asset_symbol} — path forecasts from {mm_result.cutoff}",
+                path_cols,
+            )
+
+            step_cols = [
+                c for c in ["actual", "rf_1step", "xgboost_1step", "gbm_1step"] if c in frame.columns
+            ]
+            if len(step_cols) > 1:
+                st.markdown("**1-step models** (actual lag features each day)")
+                plot_multi_model_paths(
+                    frame,
+                    f"{mm_result.asset_symbol} — 1-step vs actual",
+                    step_cols,
+                )
+
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "model": name,
+                            "MAPE %": vals["MAPE"],
+                            "dir_acc": vals["dir_acc"],
+                            "end_gap_%": vals["end_gap_pct"],
+                        }
+                        for name, vals in mm_result.metrics.items()
+                    ]
+                ),
+                use_container_width=True,
+            )
+            if mm_result.metadata.get("artifact_paths"):
+                st.caption(f"Saved: {mm_result.metadata['artifact_paths']}")
+
     if result is None:
         with tab_proj:
             st.info("Configure parameters in the sidebar and click **Run projection**.")
-        return
-
-    with tab_proj:
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Last observed close", f"${result.metadata['last_observed_close']:,.2f}")
-        col2.metric("Horizon", f"{result.horizon_days} days")
-        col3.metric(
-            "End forecast",
-            f"${result.base_path['forecast_close'].iloc[-1]:,.2f}",
-        )
-        end_change = (
-            (result.base_path["forecast_close"].iloc[-1] / result.metadata["last_observed_close"]) - 1
-        ) * 100
-        col4.metric("Base % change", f"{end_change:+.1f}%")
-
-        if result.metadata.get("regime_shift_caution"):
-            st.warning(
-                "Regime-shift caution: recursive path is near-flat while recent 14d realized volatility "
-                f"is elevated ({result.metadata.get('realized_vol_14d_pct')}%). "
-                "Multi-day RF projections under-responded in the Aug-2026 rally stress test — "
-                "prefer short 1-step validation or Prophet long-horizon for trend breaks. "
-                "Simulation only."
+        with tab_compare:
+            st.info("Run a projection first.")
+        with tab_backtest:
+            st.info("Run a projection first, then click **Run scenario backtest**.")
+        with tab_artifacts:
+            st.caption("Artifacts appear after a projection run.")
+    else:
+        with tab_proj:
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Last observed close", f"${result.metadata['last_observed_close']:,.2f}")
+            col2.metric("Horizon", f"{result.horizon_days} days")
+            col3.metric(
+                "End forecast",
+                f"${result.base_path['forecast_close'].iloc[-1]:,.2f}",
             )
+            end_change = (
+                (result.base_path["forecast_close"].iloc[-1] / result.metadata["last_observed_close"])
+                - 1
+            ) * 100
+            col4.metric("Base % change", f"{end_change:+.1f}%")
 
-        plot_projection(result, show_scenarios=bool(result.scenario_paths))
-        st.dataframe(result.base_path, use_container_width=True)
-
-    with tab_compare:
-        if not result.scenario_paths:
-            st.info("Enable at least one what-if scenario in the sidebar to compare paths.")
-        else:
-            compare_rows = []
-            for name, frame in result.scenario_paths.items():
-                end_price = float(frame["forecast_close"].iloc[-1])
-                base_end = float(result.base_path["forecast_close"].iloc[-1])
-                compare_rows.append(
-                    {
-                        "scenario": name,
-                        "end_price": end_price,
-                        "vs_base_pct": ((end_price / base_end) - 1) * 100,
-                        "vs_last_obs_pct": (
-                            (end_price / result.metadata["last_observed_close"]) - 1
-                        )
-                        * 100,
-                    }
+            if result.metadata.get("regime_shift_caution"):
+                st.warning(
+                    "Regime-shift caution: recursive path is near-flat while recent 14d realized volatility "
+                    f"is elevated ({result.metadata.get('realized_vol_14d_pct')}%). "
+                    "Multi-day RF projections under-responded in the Aug-2026 rally stress test — "
+                    "prefer short 1-step validation or Prophet long-horizon for trend breaks. "
+                    "Simulation only."
                 )
-            st.dataframe(pd.DataFrame(compare_rows), use_container_width=True)
-            plot_projection(result, show_scenarios=True)
 
-    with tab_artifacts:
-        artifact_dir = result.metadata.get("artifact_dir")
-        if artifact_dir:
-            st.code(artifact_dir)
-            report_path = f"{artifact_dir}/projection_report.json"
-            try:
-                with open(report_path, encoding="utf-8") as fp:
-                    st.json(json.load(fp))
-            except OSError:
-                st.caption("Report file not found.")
-        else:
-            st.caption("Artifacts are saved under outputs/projections/ when projection runs.")
+            plot_projection(result, show_scenarios=bool(result.scenario_paths))
+            st.dataframe(result.base_path, use_container_width=True)
+
+        with tab_compare:
+            if not result.scenario_paths:
+                st.info("Enable at least one what-if scenario in the sidebar to compare paths.")
+            else:
+                compare_rows = []
+                for name, frame in result.scenario_paths.items():
+                    end_price = float(frame["forecast_close"].iloc[-1])
+                    base_end = float(result.base_path["forecast_close"].iloc[-1])
+                    compare_rows.append(
+                        {
+                            "scenario": name,
+                            "end_price": end_price,
+                            "vs_base_pct": ((end_price / base_end) - 1) * 100,
+                            "vs_last_obs_pct": (
+                                (end_price / result.metadata["last_observed_close"]) - 1
+                            )
+                            * 100,
+                        }
+                    )
+                st.dataframe(pd.DataFrame(compare_rows), use_container_width=True)
+                plot_projection(result, show_scenarios=True)
+
+        with tab_artifacts:
+            artifact_dir = result.metadata.get("artifact_dir")
+            if artifact_dir:
+                st.code(artifact_dir)
+                report_path = f"{artifact_dir}/projection_report.json"
+                try:
+                    with open(report_path, encoding="utf-8") as fp:
+                        st.json(json.load(fp))
+                except OSError:
+                    st.caption("Report file not found.")
+            else:
+                st.caption("Artifacts are saved under outputs/projections/ when projection runs.")
+
+        with tab_backtest:
+            st.subheader("Scenario backtest (signal1 on projected path)")
+            if st.button("Run scenario backtest", key="run_bt"):
+                with st.spinner("Backtesting projected paths..."):
+                    try:
+                        bt_outcomes = get_backtest_service().backtest_projection_result(result)
+                        st.session_state["bt_outcomes"] = bt_outcomes
+                    except Exception as exc:
+                        st.error(str(exc))
+            bt_outcomes = st.session_state.get("bt_outcomes")
+            if bt_outcomes:
+                st.dataframe(
+                    pd.DataFrame(
+                        [
+                            {
+                                "scenario": o.scenario_name,
+                                "return_pct": f"{o.return_pct:.2f}%",
+                                "equity_final": f"${o.equity_final:,.0f}",
+                                "trades": o.trades,
+                            }
+                            for o in bt_outcomes
+                        ]
+                    ),
+                    use_container_width=True,
+                )
+            else:
+                st.info("Run a projection first, then click **Run scenario backtest**.")
 
     with tab_long:
         st.subheader("Long horizon (90–365 days)")
@@ -270,34 +470,6 @@ def main():
             st.pyplot(fig)
             plt.close(fig)
             st.dataframe(fc, use_container_width=True)
-
-    with tab_backtest:
-        st.subheader("Scenario backtest (signal1 on projected path)")
-        if st.button("Run scenario backtest", key="run_bt"):
-            with st.spinner("Backtesting projected paths..."):
-                try:
-                    bt_outcomes = get_backtest_service().backtest_projection_result(result)
-                    st.session_state["bt_outcomes"] = bt_outcomes
-                except Exception as exc:
-                    st.error(str(exc))
-        bt_outcomes = st.session_state.get("bt_outcomes")
-        if bt_outcomes:
-            st.dataframe(
-                pd.DataFrame(
-                    [
-                        {
-                            "scenario": o.scenario_name,
-                            "return_pct": f"{o.return_pct:.2f}%",
-                            "equity_final": f"${o.equity_final:,.0f}",
-                            "trades": o.trades,
-                        }
-                        for o in bt_outcomes
-                    ]
-                ),
-                use_container_width=True,
-            )
-        else:
-            st.info("Run a projection first, then click **Run scenario backtest**.")
 
     with tab_data:
         st.subheader("Data refresh")

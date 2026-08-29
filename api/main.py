@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from services.data_refresh import refresh_all_assets, refresh_asset_via_api, stealth_browser_instructions
 from services.long_horizon import LongHorizonService
+from services.multi_model_paths import ALL_MODELS, FAST_MODELS, MultiModelPathService
 from services.projection import ProjectionService, ScenarioSpec
 from services.scenario_backtest import ScenarioBacktestService
 
@@ -21,6 +22,7 @@ app = FastAPI(
 projection_svc = ProjectionService()
 long_svc = LongHorizonService()
 backtest_svc = ScenarioBacktestService()
+multi_model_svc = MultiModelPathService()
 
 
 class ScenarioInput(BaseModel):
@@ -61,6 +63,15 @@ class ScenarioBacktestRequest(BaseModel):
 class RefreshRequest(BaseModel):
     assets: list[str] | None = None
     backup: bool = True
+
+
+class MultiModelPathRequest(BaseModel):
+    asset: str
+    window_start: str = "2026-08-01"
+    window_end: str | None = None
+    models: list[str] | None = None
+    fast: bool = False
+    persist: bool = False
 
 
 def _to_scenarios(items: list[ScenarioInput]) -> list[ScenarioSpec]:
@@ -146,6 +157,36 @@ def compare_scenarios(req: ProjectRequest):
     if not req.scenarios:
         raise HTTPException(status_code=400, detail="At least one scenario required.")
     return project(req)
+
+
+@app.post("/api/v1/paths/compare")
+def compare_model_paths(req: MultiModelPathRequest):
+    """Real vs multi-model closes over a historical window (simulation only)."""
+    try:
+        if req.fast:
+            models = list(FAST_MODELS)
+        elif req.models:
+            models = req.models
+        else:
+            models = None
+        if models:
+            bad = set(models) - set(ALL_MODELS)
+            if bad:
+                raise ValueError(f"Unknown models: {sorted(bad)}")
+        result = multi_model_svc.run(
+            asset_symbol=req.asset,
+            window_start=req.window_start,
+            window_end=req.window_end,
+            models=models,
+            persist=req.persist,
+        )
+        payload = result.to_dict()
+        payload["disclaimer"] = "Simulation only — not investment advice."
+        return payload
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/v1/backtest/scenario")

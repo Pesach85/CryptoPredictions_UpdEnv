@@ -17,9 +17,10 @@ Experimental predictive research only — never frame outputs as investment advi
 | Component | Path |
 |-----------|------|
 | Projection engine | `services/projection.py` |
+| Multi-model path compare | `services/multi_model_paths.py` |
 | Per-asset profiles | `config/asset_profiles.json` |
-| Streamlit UI | `app_projection.py` |
-| Headless CLI | `project_forward.py` |
+| Streamlit UI | `app_projection.py` (tab **Model compare**) |
+| Headless CLI | `project_forward.py` · `scripts/august_multi_model_paths.py` |
 | Historical validation | `meta_historical_test.py` |
 
 ## Per-asset heterogeneous strategy (from KB)

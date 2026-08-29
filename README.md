@@ -25,8 +25,9 @@ pip install -r requirements.txt
 
 | What you want | Command |
 |---------------|---------|
-| Projection Lab (UI) | `streamlit run app_projection.py` |
+| Projection Lab (UI) | `streamlit run app_projection.py` (tab **Model compare**) |
 | Forward projection CLI | `python project_forward.py --asset ETHUSD --horizon 30` |
+| Multi-model path compare | `python scripts/august_multi_model_paths.py ETHUSD` · `POST /api/v1/paths/compare` |
 | Long-horizon fan chart (Prophet) | via API `POST /api/v1/project/long` or Projection Lab tab |
 | Scenario backtest | `python scenario_backtest.py --asset ETHUSD --horizon 30` |
 | Refresh market data | `python scripts/refresh_market_data.py --status` |
@@ -41,14 +42,14 @@ Daily datasets cover **19 assets**, updated through **2026-08-29**.
 ## What's New (2026)
 
 - **Projection Lab** — Streamlit UI for forward forecasts and what-if scenarios (bear/bull shocks, volatility)
-- **FastAPI** — external integrations (`/api/v1/project`, `/project/long`, `/backtest/scenario`, `/data/refresh`)
+- **FastAPI** — `/api/v1/project`, `/project/long`, `/paths/compare`, `/backtest/scenario`, `/data/refresh`
 - **Prophet long-horizon** — fan charts for 90–365 day horizons with native uncertainty bands
 - **Scenario backtesting** — simulate `signal1` strategy on projected price paths
 - **Yahoo-first data refresh** — incremental OHLCV update with stealth-browser JSON import fallback
 - **Per-asset profiles** — `config/asset_profiles.json` (9 assets) · meta CLI `--use-profiles`
 - **Shared `core/` package** — I/O, features, metrics, signals used by meta + projection
 - **CI smoke** — GitHub Actions unit tests + projection CLI on `main`
-- **August multi-model paths** — real vs Naive/RF/XGBoost/ARIMA/Prophet (`scripts/august_multi_model_paths.py`)
+- **August multi-model paths** — Streamlit tab **Model compare** + `POST /api/v1/paths/compare` + CLI `scripts/august_multi_model_paths.py`
 - **Cursor skills & agents** — `.cursor/skills/` and `.cursor/agents/` for AI-assisted workflows
 
 ---
@@ -105,6 +106,7 @@ CryptoPredictions
 ├── scripts/refresh_market_data.py      -- OHLCV data refresh
 ├── scripts/aug15_coherence_analysis.py -- PRE/POST Aug-15 coherence study
 ├── scripts/august_multi_model_paths.py -- Aug real vs multi-model price paths
+├── services/multi_model_paths.py       -- MultiModelPathService (UI/API/CLI)
 ├── models                    
 │   ├── orbit.py
 |   ├── prophet.py

@@ -66,3 +66,21 @@ def test_projection_smoke_eth():
     )
     assert len(result.base_path) == 7
     assert "regime_shift_caution" in result.metadata
+
+
+def test_multi_model_paths_fast_eth():
+    from services.multi_model_paths import FAST_MODELS, MultiModelPathService
+
+    result = MultiModelPathService().run(
+        "ETHUSD",
+        window_start="2026-08-01",
+        window_end="2026-08-10",
+        models=FAST_MODELS,
+        persist=False,
+        n_estimators_override=50,
+    )
+    assert "actual" in result.frame.columns
+    assert "rf_1step" in result.frame.columns
+    assert "naive" in result.metrics
+    assert result.cutoff == "2026-07-31"
+    assert len(result.frame) >= 5
