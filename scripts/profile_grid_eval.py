@@ -9,7 +9,9 @@ sys.path.insert(0, str(ROOT))
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 
-from meta_historical_test import all_scores, build_supervised, build_supervised_focused, load_local_close_series
+from core.features import build_supervised, build_supervised_focused
+from core.io_ohlcv import load_local_close_series
+from core.metrics_ts import all_scores
 from services.assets import resolve_data_path
 
 ASSETS = ["XBTUSD", "LTCUSD", "ETHUSD", "ADAUSD", "BCHUSD", "SOLUSD", "BNBUSD", "DOGEUSD", "AVAXUSD"]

@@ -34,7 +34,7 @@ pip install -r requirements.txt
 | Classic train pipeline | `python train.py` |
 | Leakage-safe benchmark | `python meta_historical_test.py --assets ETHUSD,XBTUSD --train-cutoff 2025-12-31` |
 
-Daily datasets cover **19 assets**, updated through **2026-07-05**.
+Daily datasets cover **19 assets**, updated through **2026-08-29**.
 
 ---
 
@@ -45,7 +45,9 @@ Daily datasets cover **19 assets**, updated through **2026-07-05**.
 - **Prophet long-horizon** — fan charts for 90–365 day horizons with native uncertainty bands
 - **Scenario backtesting** — simulate `signal1` strategy on projected price paths
 - **Yahoo-first data refresh** — incremental OHLCV update with stealth-browser JSON import fallback
-- **Per-asset profiles** — heterogeneous model config in `config/asset_profiles.json`
+- **Per-asset profiles** — `config/asset_profiles.json` (9 assets) · meta CLI `--use-profiles`
+- **Shared `core/` package** — I/O, features, metrics, signals used by meta + projection
+- **CI smoke** — GitHub Actions unit tests + projection CLI on `main`
 - **Cursor skills & agents** — `.cursor/skills/` and `.cursor/agents/` for AI-assisted workflows
 
 ---
@@ -95,9 +97,12 @@ CryptoPredictions
 ├── project_forward.py                  -- forward projection CLI
 ├── scenario_backtest.py                -- scenario backtest CLI
 ├── api/main.py                         -- FastAPI REST server
+├── core/                               -- shared I/O, features, metrics, signals
 ├── services/                           -- projection, long-horizon, data refresh
+├── tests/test_core.py                  -- golden unit tests
 ├── config/asset_profiles.json          -- per-asset model profiles
 ├── scripts/refresh_market_data.py      -- OHLCV data refresh
+├── scripts/aug15_coherence_analysis.py -- PRE/POST Aug-15 coherence study
 ├── models                    
 │   ├── orbit.py
 |   ├── prophet.py

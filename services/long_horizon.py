@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 import pandas as pd
 
-from meta_historical_test import load_local_close_series
+from core.io_ohlcv import load_local_close_series
 from path_definition import ROOT_DIR
 from services.assets import get_asset_profile, resolve_data_path
 

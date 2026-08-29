@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -11,13 +10,8 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 
-from meta_historical_test import (
-    build_supervised,
-    build_supervised_enhanced,
-    build_supervised_focused,
-    load_local_close_series,
-    load_local_ohlcv,
-)
+from core.features import build_supervised_from_source, feature_row_from_close_tail
+from core.io_ohlcv import load_local_close_series, load_local_ohlcv
 from path_definition import ROOT_DIR
 from services.assets import get_asset_profile, list_available_assets, resolve_data_path
 
@@ -64,15 +58,19 @@ class ProjectionResult:
             "scenarios": [name for name in self.scenario_paths],
             "disclaimer": "Simulation only — not investment advice.",
         }
+        import json
+
         with open(run_dir / "projection_report.json", "w", encoding="utf-8") as fp:
             json.dump(payload, fp, indent=2)
         return run_dir
 
 
 class ProjectionService:
-    """Forward projection and what-if scenario engine built on meta-historical features."""
+    """Forward projection and what-if scenario engine."""
 
     OUTPUT_ROOT = Path(ROOT_DIR) / "outputs" / "projections"
+    # Rebuild only a recent window each recursive step (warmup + lags).
+    TAIL_BUFFER = 120
 
     def __init__(self, n_jobs: int = -1):
         self.n_jobs = n_jobs
@@ -88,21 +86,9 @@ class ProjectionService:
         source: pd.Series | pd.DataFrame,
         lags: int,
         feature_mode: str,
+        tail_rows: int | None = None,
     ) -> tuple[pd.DataFrame, list[str]]:
-        if feature_mode == "enhanced":
-            if not isinstance(source, pd.DataFrame):
-                raise ValueError("Enhanced feature mode requires OHLCV DataFrame.")
-            return build_supervised_enhanced(source, lags=lags)
-
-        if not isinstance(source, pd.Series):
-            source = source["close"]
-
-        if feature_mode == "focused":
-            return build_supervised_focused(source, lags=lags)
-
-        supervised = build_supervised(source, lags=lags)
-        feature_cols = [f"lag_{i}" for i in range(1, lags + 1)]
-        return supervised, feature_cols
+        return build_supervised_from_source(source, lags, feature_mode, tail_rows=tail_rows)
 
     def _load_initial_source(
         self,
@@ -137,7 +123,8 @@ class ProjectionService:
         return model
 
     def _tree_interval(self, model: RandomForestRegressor, features: np.ndarray) -> tuple[float, float, float]:
-        tree_preds = np.array([tree.predict(features.reshape(1, -1))[0] for tree in model.estimators_])
+        x = np.asarray(features, dtype=float).reshape(1, -1)
+        tree_preds = np.asarray([est.predict(x)[0] for est in model.estimators_], dtype=float)
         return (
             float(np.percentile(tree_preds, 10)),
             float(np.percentile(tree_preds, 50)),
@@ -173,6 +160,11 @@ class ProjectionService:
         extended = pd.concat([ohlcv, row])
         return extended[~extended.index.duplicated(keep="last")].sort_index()
 
+    @staticmethod
+    def regime_shift_caution(pred_return_pct: float, realized_vol_pct: float) -> bool:
+        """True when recursive path is near-flat but recent realized vol is elevated."""
+        return abs(pred_return_pct) < 1.0 and realized_vol_pct > 5.0
+
     def _recursive_forecast(
         self,
         source: pd.Series | pd.DataFrame,
@@ -188,12 +180,22 @@ class ProjectionService:
         last_close = float(
             working_source["close"].iloc[-1] if isinstance(working_source, pd.DataFrame) else working_source.iloc[-1]
         )
+        close_mode = feature_mode == "close" and isinstance(working_source, pd.Series)
+        closes: list[float] | None = None
+        if close_mode:
+            closes = [float(x) for x in working_source.values.tolist()]
+
+        tail = max(self.TAIL_BUFFER, lags + 60)
 
         for step in range(1, horizon_days + 1):
-            supervised, feature_cols = self._build_supervised_from_source(
-                working_source, lags=lags, feature_mode=feature_mode
-            )
-            features = supervised.iloc[-1][feature_cols].values
+            if close_mode and closes is not None:
+                features = np.asarray(feature_row_from_close_tail(closes, lags), dtype=float)
+            else:
+                supervised, feature_cols = self._build_supervised_from_source(
+                    working_source, lags=lags, feature_mode=feature_mode, tail_rows=tail
+                )
+                features = supervised.iloc[-1][feature_cols].values
+
             low, point, high = self._tree_interval(model, features)
 
             if scenario and scenario.volatility_multiplier != 1.0:
@@ -226,6 +228,8 @@ class ProjectionService:
                 )
             else:
                 working_source = self._append_close(working_source, next_date, point)
+                if closes is not None:
+                    closes.append(float(point))
 
             last_close = point
 
@@ -261,6 +265,12 @@ class ProjectionService:
         effective_as_of = str(supervised.index.max().date())
         model = self._fit_model(supervised, feature_cols, n_estimators)
         start_date = supervised.index.max()
+        last_obs = float(supervised["target"].iloc[-1])
+
+        # Realized vol over last 14 observed returns for caution flag
+        close_hist = source["close"] if isinstance(source, pd.DataFrame) else source
+        rets = close_hist.pct_change().dropna().tail(14)
+        realized_vol_pct = float(rets.std() * 100.0) if len(rets) else 0.0
 
         base_path = self._recursive_forecast(
             source=source,
@@ -272,6 +282,8 @@ class ProjectionService:
             scenario=None,
         )
         base_path["scenario"] = "base"
+        pred_return_pct = float(base_path["forecast_close"].iloc[-1] / last_obs - 1.0) * 100.0
+        caution = self.regime_shift_caution(pred_return_pct, realized_vol_pct)
 
         scenario_paths: dict[str, pd.DataFrame] = {}
         for scenario in scenarios or []:
@@ -300,8 +312,11 @@ class ProjectionService:
             scenario_paths=scenario_paths,
             metadata={
                 "training_rows": int(len(supervised)),
-                "last_observed_close": float(supervised["target"].iloc[-1]),
+                "last_observed_close": last_obs,
                 "method": "recursive_random_forest_1step",
+                "pred_return_pct": round(pred_return_pct, 3),
+                "realized_vol_14d_pct": round(realized_vol_pct, 3),
+                "regime_shift_caution": caution,
                 "disclaimer": "Simulation only — not investment advice.",
             },
         )

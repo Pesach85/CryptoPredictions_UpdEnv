@@ -1,6 +1,88 @@
 # Knowledge Base - CryptoPredictions
 
-## Scope
+## Current State (2026-08-29) — read this first
+
+> Chronological entries below are an audit log. Prefer this front-matter for architecture and truth.
+
+### Scope
+- Predictive experimentation and software validation on crypto time series.
+- Outputs are **simulation only — not investment advice**.
+
+### Architecture (two stacks)
+
+| Stack | Entry points | Role |
+|-------|--------------|------|
+| **Legacy Hydra** | `train.py`, `backtester.py`, `models/`, `data_loader/`, `factory/` | Multi-model train + classic backtest |
+| **Product / meta** | `meta_historical_test.py`, `services/`, `app_projection.py`, `api/main.py` | Leakage-safe RF validation, projections, what-if, FastAPI, data refresh |
+
+Product stack depends on `meta_historical_test.py` as a shared library (god-module risk). Hydra and product stacks do **not** share feature engineering or metrics.
+
+### Data
+- Daily CSVs: **19 assets**, last bar **2026-08-29** (refreshed 2026-08-29 via Yahoo-first pipeline).
+- Earlier KB claims of end=`2026-04-15` or Bitmex-only `2023-02-17` are **superseded**.
+
+### Profiles (`config/asset_profiles.json`)
+- Explicit: XBT/LTC (30, close); ETH/ADA/BCH (14, close); SOL (14, focused); **BNB (14, focused); DOGE/AVAX (14, close)**.
+- Coverage: **9/19** assets; others use default (30, close).
+- Profiles apply to projection path; meta CLI: `python meta_historical_test.py --use-profiles ...`.
+
+### Shared core (refactor Phase A — shipped 2026-08-29)
+- `core/io_ohlcv.py`, `core/features.py`, `core/metrics_ts.py`, `core/signals.py`, `core/market_ids.py`
+- `meta_historical_test.py` re-exports + API fetchers; services import from `core/`
+- Tests: `tests/test_core.py` · CI: `.github/workflows/ci-smoke.yml`
+
+### Shipped vs pending
+
+| Item | Status |
+|------|--------|
+| Projection Lab + what-if | Shipped |
+| FastAPI | Shipped |
+| Prophet long-horizon | Shipped |
+| Scenario backtest on projected paths | Shipped |
+| Yahoo-first data refresh + stealth import | Shipped |
+| `core/` extract + golden tests + CI smoke | **Shipped 2026-08-29** |
+| Recursive close-mode O(lags) features + regime caution | **Shipped 2026-08-29** |
+| Meta `--use-profiles` + BNB/DOGE/AVAX profiles | **Shipped 2026-08-29** |
+| Full Hydra↔meta feature unification | Optional later |
+| Multi-obj WF profile recalibration | Pending |
+
+### Validated code hygiene (2026-08-29)
+- Removed unreachable dead code after `build_supervised_focused` return.
+- Deterministic Aug-15 PRE/POST coherence analysis: `scripts/aug15_coherence_analysis.py` → `outputs/analyses/aug15_coherence_2026.json`.
+- `pytest tests/test_core.py` green (core unit tests).
+
+### Next Best Decision
+Schedule weekly `python scripts/refresh_market_data.py --retry-failed` and watch CI smoke on `main` after each push.
+
+## 2026-08-29 Incremental Refactor Phases A–E (shipped)
+
+### Phase A — core extract
+- Added `core/` package; `meta_historical_test.py` thin CLI + API fetchers.
+- Services/scripts import from `core/`.
+- Golden tests: `tests/test_core.py` (6 passed).
+
+### Phase B — projection performance + caution
+- Close-mode recursive path uses O(lags) `feature_row_from_close_tail` (no full rebuild).
+- Focused/enhanced rebuilds only last `TAIL_BUFFER` rows.
+- `regime_shift_caution` in projection metadata + Streamlit warning.
+
+### Phase C — profiles
+- Meta CLI `--use-profiles`.
+- Profiles expanded: BNB, DOGE, AVAX (9/19).
+
+### Phase D — signals + CI
+- Shared `core/signals.compute_signal1` used by scenario BT + Hydra `Strategies.signal1`.
+- `.github/workflows/ci-smoke.yml` on push/PR to `main`.
+
+### Phase E — ops docs
+- KB Current State updated; README date + What's New; Aug-15 canvas for low-cog visualization.
+
+### Next Best Decision
+Confirm CI green on GitHub after push; optional weekly refresh cron outside repo.
+
+---
+
+## Scope (legacy header)
 - This project is used for predictive experimentation on crypto time series.
 - Outputs are for research/simulation, not investment decisions.
 
@@ -786,3 +868,57 @@ Eseguire **Fase 1.2**: `python project_forward.py --asset XBTUSD --horizon 30 --
 
 ### Next Best Decision
 Avviare FastAPI (`uvicorn api.main:app --port 8000`) e testare `POST /api/v1/project/long` con `{"asset":"ETHUSD","horizon_days":180,"model":"prophet"}`; poi refresh batch `--all` per allineare tutti i 19 asset a oggi.
+
+## 2026-08-29 Structural Audit + Aug-15 Coherence Analysis
+
+### KB drift correction
+- Front-matter **Current State** added (this file top).
+- Data refreshed: all 19 daily assets → **2026-08-29** (+~54 bars from 2026-07-05).
+- Dead code removed in `build_supervised_focused` (unreachable block after `return`).
+
+### Structural findings (summary)
+| Category | P0 | P1 |
+|----------|----|----|
+| Structural | Dual Hydra vs meta/services pipelines; meta god-module | Profiles not wired into meta CLI; signal1 duplicated |
+| Duplication | Features ×2, metrics ×2 | CSV loaders ×2, RSI/MACD duplicated in meta |
+| Performance | Recursive projection rebuilds supervised every day | Tree-interval O(n_estimators) per day; walk-forward refits |
+| Maintainability | Zero automated tests | 6/19 profiles; chronological KB contradictions |
+
+### Refactor strategy (ordered)
+1. **Phase A** — Extract `core/` from meta (I/O, features, metrics); delete dead code ✅ started; golden tests.
+2. **Phase B** — Incremental features + batched tree preds for recursive projection.
+3. **Phase C** — Meta CLI reads `asset_profiles.json`; expand BNB/DOGE/AVAX after multi-obj grid.
+4. **Phase D** — Optional Hydra↔meta convergence; single metrics module; CI smoke.
+5. **Phase E** — Scheduled data refresh; keep KB Current State fresh.
+
+### Deterministic Aug-15 ±15d coherence (simulation only)
+
+**Protocol**
+- Anchor: **2026-08-15**
+- PRE: train `< 2026-08-01`, 1-step eval `2026-08-01..15` (actual lags, leakage-safe)
+- POST 1-step: train `<= 2026-08-15`, eval `2026-08-16..29` with **actual** lags (upper bound)
+- POST recursive: train `<= 2026-08-15`, Projection Lab recursive path vs realized (true forward use-case)
+- Artifact: `outputs/analyses/aug15_coherence_2026.json` / `scripts/aug15_coherence_analysis.py`
+
+**Market context (realized)** — strong post-Aug-15 rally on majors (BTC ~+23%, ETH ~+30%, SOL ~+38% from Aug 15 close through Aug 29).
+
+| Asset | PRE MAPE | PRE dir | PRE dir edge vs naive | POST 1-step MAPE | POST 1-step dir | POST recursive MAPE | Recursive return gap (pp) | End-dir match (rec) |
+|-------|----------|---------|----------------------|------------------|-----------------|---------------------|---------------------------|---------------------|
+| XBTUSD | 0.73% | 0.50 | 0.0pp | 2.86% | 0.58 | **14.25%** | **-23.2** | NO |
+| ETHUSD | 0.75% | **0.71** | **+50pp** | 3.34% | **0.75** | **18.08%** | **-30.0** | NO |
+| SOLUSD | 1.22% | 0.29 | -14pp | 3.78% | 0.67 | **16.89%** | **-37.6** | YES* |
+| LTCUSD | 0.81% | 0.43 | -7pp | 2.82% | **0.75** | 8.78% | -9.9 | YES |
+| ADAUSD | 9.15% | 0.64 | -14pp | 7.62% | 0.58 | 12.92% | -12.8 | YES |
+| BCHUSD | 1.08% | 0.50 | -7pp | 4.18% | 0.67 | 15.74% | -18.7 | YES |
+
+\*SOL recursive end-direction match is technically `true` only because predicted return ≈ +0.07% (near-flat) while actual was +37.6% — **not** a meaningful forecast of the rally; magnitude gap dominates.
+
+**Verdict**
+1. **PRE (Aug 1–15):** Coherent on magnitude for BTC/ETH/LTC/BCH (MAPE ≈ 0.7–1.1%). ETH had strong directional edge (+50pp vs naive). SOL/ADA weaker (SOL dir below naive; ADA MAPE 9.15%).
+2. **POST 1-step with oracle lags:** Model tracks day-to-day levels better (MAPE ~2.8–4.2% majors) and often beats naive on direction (ETH +25pp, LTC +17pp). Still **under-captures** the full window return (positive return gaps on BTC/ETH/SOL/BCH when comparing last pred vs first actual).
+3. **POST recursive (Projection Lab path):** **Not coherent with the realized rally.** Forecasts collapse near persistence (pred return ≈ 0%), MAPE 9–18%, return gap **-10 to -38 pp**. Only ~7–23% of days fall inside the 10–90% tree band. The RF recursive engine failed this regime-shift window.
+
+**Implication for product:** short-horizon 1-step validation remains useful; multi-day recursive RF should be labeled as **low-confidence in strong trend breaks**, and long-horizon Prophet/Orbit (or recalibration) preferred for 14d+ paths after shocks.
+
+### Next Best Decision
+Ship Phase A extract of `core/features.py` + unit test, then add a Projection Lab UI warning when `|recursive_return| < 1%` while historical 14d realized vol is high (regime-shift caution).

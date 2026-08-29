@@ -40,5 +40,23 @@
     "features": "focused",
     "n_estimators": 300,
     "description": "High-beta asset — focused features with short lags."
+  },
+  "BNBUSD": {
+    "lags": 14,
+    "features": "focused",
+    "n_estimators": 300,
+    "description": "From 2026-07 grid eval — best MAPE with short focused features."
+  },
+  "DOGEUSD": {
+    "lags": 14,
+    "features": "close",
+    "n_estimators": 300,
+    "description": "From 2026-07 grid eval — short close lags."
+  },
+  "AVAXUSD": {
+    "lags": 14,
+    "features": "close",
+    "n_estimators": 300,
+    "description": "From 2026-07 grid eval — short close lags for directional edge."
   }
 }

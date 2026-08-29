@@ -193,6 +193,15 @@ def main():
         ) * 100
         col4.metric("Base % change", f"{end_change:+.1f}%")
 
+        if result.metadata.get("regime_shift_caution"):
+            st.warning(
+                "Regime-shift caution: recursive path is near-flat while recent 14d realized volatility "
+                f"is elevated ({result.metadata.get('realized_vol_14d_pct')}%). "
+                "Multi-day RF projections under-responded in the Aug-2026 rally stress test — "
+                "prefer short 1-step validation or Prophet long-horizon for trend breaks. "
+                "Simulation only."
+            )
+
         plot_projection(result, show_scenarios=bool(result.scenario_paths))
         st.dataframe(result.base_path, use_container_width=True)
 

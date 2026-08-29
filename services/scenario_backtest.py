@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 from backtesting import Backtest, Strategy
 
-from meta_historical_test import load_local_ohlcv
+from core.io_ohlcv import load_local_ohlcv
+from core.signals import compute_signal1
 from path_definition import ROOT_DIR
 from services.assets import resolve_data_path
 from services.projection import ProjectionResult, ScenarioSpec
@@ -74,22 +75,6 @@ class _ProjectionSignalStrategy(Strategy):
             self.position.close()
 
 
-def _compute_signal1(df: pd.DataFrame) -> pd.Series:
-    position = False
-    signal = [0] * len(df)
-    closes = df["Close"].values
-    preds = df["predicted_mean"].values
-    for i in range(1, len(signal)):
-        if preds[i] > closes[i - 1]:
-            if not position:
-                signal[i] = 2
-                position = True
-        elif position:
-            signal[i] = 1
-            position = False
-    return pd.Series(signal, index=df.index, name="signal1")
-
-
 def run_scenario_backtest(
     asset_symbol: str,
     projection: pd.DataFrame,
@@ -100,7 +85,7 @@ def run_scenario_backtest(
 ) -> ScenarioBacktestResult:
     historical = load_local_ohlcv(resolve_data_path(asset_symbol))
     bt_df = projection_path_to_backtest_df(historical, projection, history_days=history_days)
-    bt_df["Signal1"] = _compute_signal1(bt_df)
+    bt_df["Signal1"] = compute_signal1(bt_df)
 
     bt = Backtest(bt_df, _ProjectionSignalStrategy, cash=cash, commission=commission)
     stats = bt.run()

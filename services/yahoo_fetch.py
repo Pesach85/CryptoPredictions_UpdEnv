@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import requests
 
-from meta_historical_test import sanitize_symbol
+from core.market_ids import sanitize_symbol
 
 YAHOO_TICKERS: dict[str, str] = {
     "XBTUSD": "BTC-USD",

@@ -1,0 +1,26 @@
+name: ci-smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy scikit-learn pytest joblib requests
+      - name: Unit tests (core)
+        run: pytest -q tests/test_core.py -k "not projection_smoke"
+      - name: CLI smoke projection
+        run: python project_forward.py --asset ETHUSD --horizon 7 --as-of 2026-08-15 --no-save
+      - name: Refresh status
+        run: python scripts/refresh_market_data.py --status

@@ -11,7 +11,9 @@ from typing import Any
 
 import pandas as pd
 
-from meta_historical_test import load_local_ohlcv, resolve_coingecko_coin_id, sanitize_symbol
+from core.io_ohlcv import load_local_ohlcv
+from core.market_ids import sanitize_symbol
+from meta_historical_test import resolve_coingecko_coin_id
 from path_definition import ROOT_DIR
 from services.assets import list_available_assets, resolve_data_path
 from services.stealth_capture import capture_to_import_csv, load_capture_file

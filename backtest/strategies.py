@@ -2,28 +2,20 @@ from backtesting import Strategy
 import pandas as pd
 import numpy as np
 
+from core.signals import compute_signal1 as _shared_signal1
+
 
 class Strategies:
     def __init__(self, df):
         self.df = df
 
     def signal1(self):
-        position = False
-        signal = [0] * self.df.shape[0]
-        for i in range(1, len(signal)):
-            if self.df['predicted_mean'][i] > self.df['Close'][i - 1]:
-                if position is False:
-                    signal[i] = 2
-                    position = True
-                else:
-                    signal[i] = 0
-            else:
-                if position is True:
-                    signal[i] = 1
-                    position = False
-                else:
-                    signal[i] = 0
-        return signal
+        frame = self.df
+        # Adapt column names used by Hydra backtest CSV
+        work = frame.rename(columns={"predicted_mean": "predicted_mean", "Close": "Close"})
+        if "predicted_mean" not in work.columns and "prediction" in work.columns:
+            work = work.rename(columns={"prediction": "predicted_mean"})
+        return _shared_signal1(work).tolist()
 
     def signal2(self):
         signal = [0] * self.df.shape[0]
