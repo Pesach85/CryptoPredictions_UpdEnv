@@ -79,7 +79,7 @@ Schedule weekly `python scripts/refresh_market_data.py --retry-failed` and watch
 - KB Current State updated; README date + What's New; Aug-15 canvas for low-cog visualization.
 
 ### Next Best Decision
-Optional: weekly cron `python scripts/refresh_market_data.py --retry-failed` (outside repo); keep CI green on each push.
+Optional: weekly cron `python scripts/refresh_market_data.py --retry-failed` (outside repo). CI smoke on `main` is green (`69b0d63`).
 
 ---
 
