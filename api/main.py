@@ -12,6 +12,7 @@ from services.long_horizon import LongHorizonService
 from services.multi_model_paths import ALL_MODELS, FAST_MODELS, MultiModelPathService
 from services.projection import ProjectionService, ScenarioSpec
 from services.scenario_backtest import ScenarioBacktestService
+from services.volatility_events import VolatilityEventService
 
 app = FastAPI(
     title="CryptoPredictions API",
@@ -23,6 +24,7 @@ projection_svc = ProjectionService()
 long_svc = LongHorizonService()
 backtest_svc = ScenarioBacktestService()
 multi_model_svc = MultiModelPathService()
+volatility_svc = VolatilityEventService()
 
 
 class ScenarioInput(BaseModel):
@@ -72,6 +74,12 @@ class MultiModelPathRequest(BaseModel):
     models: list[str] | None = None
     fast: bool = False
     persist: bool = False
+
+
+class VolatilityForecastRequest(BaseModel):
+    asset: str
+    threshold_pct: float = Field(default=10.0, ge=5.0, le=25.0)
+    as_of_date: str | None = None
 
 
 def _to_scenarios(items: list[ScenarioInput]) -> list[ScenarioSpec]:
@@ -183,6 +191,22 @@ def compare_model_paths(req: MultiModelPathRequest):
         payload = result.to_dict()
         payload["disclaimer"] = "Simulation only — not investment advice."
         return payload
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/volatility/forecast")
+def volatility_forecast(req: VolatilityForecastRequest):
+    """Probability and timing of next +/-threshold_pct move (simulation only)."""
+    try:
+        result = volatility_svc.forecast(
+            asset_symbol=req.asset,
+            threshold_pct=req.threshold_pct,
+            as_of_date=req.as_of_date,
+        )
+        return result.to_dict()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

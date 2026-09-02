@@ -1,6 +1,6 @@
 # Knowledge Base - CryptoPredictions
 
-## Current State (2026-08-29) — read this first
+## Current State (2026-09-02) — read this first
 
 > Chronological entries below are an audit log. Prefer this front-matter for architecture and truth.
 
@@ -35,8 +35,8 @@ Evidence from August multi-model paths + Aug-15 coherence + historical n_estimat
 
 | Item | Status |
 |------|--------|
-| Projection Lab + what-if + Model compare | Shipped |
-| FastAPI (`/paths/compare` included) | Shipped |
+| Projection Lab + what-if + Model compare + **Volatility radar** | Shipped |
+| FastAPI (`/paths/compare`, `/volatility/forecast`) | Shipped |
 | Prophet long-horizon / scenario BT / data refresh | Shipped |
 | `core/` + CI smoke | Shipped |
 | **New model families for accuracy uplift** | **Closed — not justified** |
@@ -45,7 +45,33 @@ Evidence from August multi-model paths + Aug-15 coherence + historical n_estimat
 | Non-price features (macro/on-chain) | Research track — not opened |
 
 ### Next Best Decision
-Run weekly `python scripts/refresh_market_data.py --retry-failed` (or cron). After each refresh, optionally re-check one major with Model compare Fast on the last 14–30 days. No model-expansion sprint.
+Weekly data refresh; after impulses (e.g. Aug-19 +20% cluster) run **Volatility radar** on ETH/BTC and log output — simulation only.
+
+## 2026-09-02 Volatility Event Radar (shipped)
+
+### Rally from 2026-08-19 (local daily CSVs)
+| Asset | Max 1d from Aug 19 | Cum. to Aug 29 | Note |
+|-------|-------------------|----------------|------|
+| ETHUSD | +17.5% | +8.2% | Aug +32% total; consolidation phase |
+| XBTUSD | +7.1% | +12.1% | Impulse then fade Aug 29 (-3.3%) |
+| SOLUSD | +10.8% | +21.4% | Strongest momentum residue |
+
+### Algorithm (`services/volatility_events.py`)
+Event = |1d|≥threshold or |3d|≥1.2×threshold. Features: ATR ratio, BB compression, vol ratio, RSI, MA distance, 14d impulse, days since event, volume z-score. Top-40 historical analogs + regime score → P(7/14/21d), magnitude, direction bias, calendar window.
+
+### Forecast ±10% as of 2026-08-29
+| Asset | P(14d) | Bias | Window est. |
+|-------|--------|------|-------------|
+| ETHUSD | ~71% | Down | Sep 4–16 |
+| XBTUSD | ~79% | Down | Sep 1–7 |
+| SOLUSD | ~92% | Up (slight) | Aug 31–Sep 4 |
+
+Simulation only — not investment advice.
+
+### Entry points
+- UI: `streamlit run app_projection.py` → tab **Volatility radar**
+- API: `POST /api/v1/volatility/forecast`
+- CLI: `python scripts/volatility_forecast.py ETHUSD`
 
 ## 2026-08-29 Decision Gate — Models vs Data
 

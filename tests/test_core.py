@@ -84,3 +84,18 @@ def test_multi_model_paths_fast_eth():
     assert "naive" in result.metrics
     assert result.cutoff == "2026-07-31"
     assert len(result.frame) >= 5
+
+
+def test_volatility_event_forecast_smoke():
+    from services.volatility_events import VolatilityEventService
+
+    result = VolatilityEventService().forecast("ETHUSD", threshold_pct=10.0)
+    payload = result.to_dict()
+    assert payload["probabilities"]["14d_pct"] >= 0
+    assert payload["expected_move_pct"] >= 10
+    assert payload["regime_label"] in (
+        "post_impulse_consolidation",
+        "volatility_compression",
+        "elevated_volatility",
+        "neutral_range",
+    )

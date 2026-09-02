@@ -20,6 +20,7 @@ from services.long_horizon import LongHorizonService
 from services.multi_model_paths import ALL_MODELS, FAST_MODELS, MultiModelPathService
 from services.projection import ProjectionService, ScenarioSpec
 from services.scenario_backtest import ScenarioBacktestService
+from services.volatility_events import VolatilityEventService
 
 st.set_page_config(
     page_title="CryptoPredictions — Projection Lab",
@@ -57,6 +58,11 @@ def get_long_service() -> LongHorizonService:
 @st.cache_resource
 def get_backtest_service() -> ScenarioBacktestService:
     return ScenarioBacktestService()
+
+
+@st.cache_resource
+def get_volatility_service() -> VolatilityEventService:
+    return VolatilityEventService()
 
 
 @st.cache_resource
@@ -183,6 +189,7 @@ def main():
         tab_proj,
         tab_compare,
         tab_models,
+        tab_vol,
         tab_long,
         tab_backtest,
         tab_data,
@@ -192,6 +199,7 @@ def main():
             "Projection",
             "Scenario compare",
             "Model compare",
+            "Volatility radar",
             "Long horizon",
             "Scenario backtest",
             "Data refresh",
@@ -340,6 +348,91 @@ def main():
             )
             if mm_result.metadata.get("artifact_paths"):
                 st.caption(f"Saved: {mm_result.metadata['artifact_paths']}")
+
+    with tab_vol:
+        st.subheader("Volatility event radar")
+        st.caption(
+            "Stima probabilistica del prossimo movimento >= soglia (default +/-10%) e finestra temporale. "
+            "Regime post-rally (es. candele +20% dal 19/08), compressione volatilita, analoghi storici. "
+            "Simulation only."
+        )
+        vcol1, vcol2 = st.columns(2)
+        with vcol1:
+            vol_threshold = st.slider(
+                "Soglia movimento (%)",
+                min_value=5,
+                max_value=20,
+                value=10,
+                step=1,
+                key="vol_threshold",
+            )
+        with vcol2:
+            vol_as_of = st.checkbox("Data di analisi custom", value=False, key="vol_custom_date")
+            vol_cutoff = None
+            if vol_as_of:
+                vol_cutoff = st.date_input(
+                    "As-of",
+                    value=datetime(2026, 8, 29),
+                    key="vol_as_of",
+                ).isoformat()
+
+        if st.button("Analizza evento volatilita", type="primary", key="run_vol"):
+            with st.spinner(f"Analisi {asset}..."):
+                try:
+                    vf = get_volatility_service().forecast(
+                        asset_symbol=asset,
+                        threshold_pct=float(vol_threshold),
+                        as_of_date=vol_cutoff,
+                    )
+                    st.session_state["vol_forecast"] = vf
+                except Exception as exc:
+                    st.error(str(exc))
+
+        vf = st.session_state.get("vol_forecast")
+        if vf is None:
+            st.info("Seleziona crypto in sidebar e clicca **Analizza evento volatilita**.")
+        elif vf.asset_symbol != asset:
+            st.warning(f"Ultima analisi: {vf.asset_symbol}. Riesegui per {asset}.")
+        else:
+            vd = vf.to_dict()
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Prezzo attuale", f"${vd['current_price']:,.2f}")
+            c2.metric("Prob. 14 giorni", f"{vd['probabilities']['14d_pct']:.0f}%")
+            c3.metric("Magnitudine attesa", f"~{vd['expected_move_pct']:.1f}%")
+            dir_label = {"up": "Rialzo", "down": "Ribasso", "neutral": "Neutro"}[vd["direction_bias"]]
+            c4.metric("Bias direzione", dir_label)
+
+            st.markdown(f"**Regime:** `{vd['regime_label']}` · **Confidenza:** {vd['confidence']}")
+            if vf.metadata.get("post_rally_context"):
+                st.info(vf.metadata["post_rally_context"])
+
+            p7, p14, p21 = st.columns(3)
+            p7.metric("Prob. 7d", f"{vd['probabilities']['7d_pct']:.0f}%")
+            p14.metric("Prob. 14d", f"{vd['probabilities']['14d_pct']:.0f}%")
+            p21.metric("Prob. 21d", f"{vd['probabilities']['21d_pct']:.0f}%")
+
+            st.markdown("**Finestra piu probabile**")
+            st.write(vd["most_probable_window"])
+            st.caption(
+                f"Stima calendario: {vd['window_start_estimate']} - {vd['window_end_estimate']} · "
+                f"Analoghi storici: {vd['analog_count']}"
+            )
+
+            sc1, sc2 = st.columns(2)
+            sc1.metric("Scenario rialzo", f"+{vd['scenarios']['upside_pct']:.1f}%")
+            sc2.metric("Scenario ribasso", f"-{vd['scenarios']['downside_pct']:.1f}%")
+            st.caption(
+                f"Probabilita direzione rialzista: {vd['direction_up_prob_pct']:.0f}% · "
+                f"ribassista: {100 - vd['direction_up_prob_pct']:.0f}%"
+            )
+
+            if vf.metadata.get("regime_reasons"):
+                st.markdown("**Fattori analitici attivi**")
+                for reason in vf.metadata["regime_reasons"]:
+                    st.markdown(f"- {reason}")
+
+            with st.expander("Dettaglio fattori numerici"):
+                st.json(vd["factors"])
 
     if result is None:
         with tab_proj:

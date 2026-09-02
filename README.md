@@ -50,6 +50,7 @@ Daily datasets cover **19 assets**, updated through **2026-08-29**.
 - **Shared `core/` package** — I/O, features, metrics, signals used by meta + projection
 - **CI smoke** — GitHub Actions unit tests + projection CLI on `main`
 - **August multi-model paths** — Streamlit tab **Model compare** + `POST /api/v1/paths/compare` + CLI `scripts/august_multi_model_paths.py`
+- **Volatility event radar** — prob/timing of ±N% moves (`services/volatility_events.py`, tab **Volatility radar**)
 - **Decision gate (2026-08-29)** — no new model classes for accuracy; ops = data refresh + retrain current stack (see `Documents/KB.md`)
 - **Cursor skills & agents** — `.cursor/skills/` and `.cursor/agents/` for AI-assisted workflows
 
