@@ -9,7 +9,7 @@ Ship a **dev-linked production** model:
 | Desktop Win/Linux | **PySide6** native shell + local FastAPI | Not a WebView-only app; tray, menus, in-process Volatility radar |
 | Install / uninstall | PowerShell (Win) + XDG shell (Linux) | Desktop icon, Start Menu / `.desktop`, clean uninstall without deleting git repo |
 | Live code | `mode=dev-linked` + `pip install -e .` | Shortcuts set `CRYPTOPREDICTIONS_ROOT` / `PYTHONPATH` → edits apply immediately |
-| Android | **Kotlin Compose** APK | Native notifications, WorkManager, Share, EncryptedSharedPreferences — talks to live API |
+| Android | **Kotlin on-device engines** (Volatility + Paths + bundled OHLCV); FastAPI optional | Majority of UX offline; heavy Python models optional remote |
 
 Frozen PyInstaller bundles are deferred until a release freeze; during active research, frozen copies would drift from the repo.
 

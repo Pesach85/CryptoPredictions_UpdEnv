@@ -18,25 +18,40 @@
 | **Native apps** | `cryptopredictions` package, `packaging/` | Qt desktop, XDG/Win installers, Android Compose |
 
 ### Packaging mode — **dev-linked production** (decision 2026-09-03)
-- Installers write config with `mode=dev-linked` + `repo_root` → shortcuts set `CRYPTOPREDICTIONS_ROOT` / `PYTHONPATH`.
-- `pip install -e .[desktop]` — **code edits are live in the installed app** without reinstall.
-- Frozen PyInstaller/Briefcase bundles **deferred** until a release freeze (would otherwise drift from research codebase).
-- Android APK is native Kotlin (not WebView); ML stays on host API during dev.
+- Desktop installers write `mode=dev-linked` + `repo_root` → live Python codebase.
+- **Android correction (same day):** APK is **on-device first** (Kotlin engines + bundled OHLCV). FastAPI is optional for heavy Python models only — a Retrofit-only companion failed the quality gate.
 
 ### Shipped vs deferred
 
 | Item | Status |
 |------|--------|
-| Projection Lab + Model compare + Volatility radar | Shipped |
-| FastAPI (+ `/volatility/forecast`) | Shipped |
-| Native Qt desktop shell (Win/Linux) | **Shipped 2026-09-03** |
-| Win/Linux install + uninstall + desktop icons | **Shipped 2026-09-03** |
-| Android Kotlin Compose companion + APK recipe | **Shipped 2026-09-03** |
+| Native Qt desktop shell (Win/Linux) | Shipped |
+| Win/Linux install + uninstall + desktop icons | Shipped |
+| Android **on-device** Volatility + Paths engines | **Shipped 2026-09-03 (gate fix)** |
+| Android optional remote FastAPI | Optional secondary |
 | Frozen offline single-file EXE/AppImage | Deferred |
-| New model families for accuracy | **Closed** |
+| Full sklearn/Prophet inside APK (Chaquopy) | Deferred (complexity / size) |
 
 ### Next Best Decision
-On a Linux box run `bash packaging/linux/install.sh` and verify `.desktop` + `notify-send`; on Android SDK host run `packaging/android/build_apk.ps1` / `.sh` to produce `app-debug.apk`.
+Rebuild debug APK after `python scripts/sync_android_ohlcv.py` and verify Radar runs offline (airplane mode).
+
+## 2026-09-03 Android quality-gate correction — on-device engines
+
+### Challenge
+User: why FastAPI APK instead of majority of functions on Android-native stack?
+
+### Honest root cause
+First Android delivery optimized for **reuse of Python services** via HTTP. That met “native UI chrome” but **failed** “majority of analytics inside the APK”.
+
+### Fix shipped
+1. `VolatilityEngine.kt` — full port of analog+regime volatility radar (no network).
+2. `PathCompareEngine.kt` — Naive / EWMA / LinReg 1-step August compare on-device.
+3. Bundled `assets/ohlcv/*.csv` (6 majors, ~900d) via `scripts/sync_android_ohlcv.py`.
+4. `WorkManager` probe uses on-device engine.
+5. Settings default `computeMode=ondevice`; Remote API optional for RF/Prophet only.
+
+### Still remote-only (accepted residual)
+RandomForest recursive projection, Prophet/Orbit long-horizon, full meta_historical_test — require Python stack; not reimplemented in Kotlin in this pass. Documented as optional bridge, not the product default.
 
 ## 2026-09-03 Native packaging (shipped)
 

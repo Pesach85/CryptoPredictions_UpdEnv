@@ -29,7 +29,8 @@ pip install -e ".[desktop]"   # editable = live codebase in installed app
 |----------|---------|-----------|
 | Windows | `.\packaging\windows\install.ps1` | `.\packaging\windows\uninstall.ps1` |
 | Linux | `bash packaging/linux/install.sh` | `bash packaging/linux/uninstall.sh` |
-| Android APK | `packaging/android/build_apk.ps1` (see `packaging/android/README.md`) | uninstall via Android settings |
+| Android APK | `packaging/android/build_apk.ps1` — **on-device** radar/paths (FastAPI optional) | uninstall via Android settings |
+
 
 Shortcuts launch the **live repo** (`CRYPTOPREDICTIONS_ROOT`) — no reinstall after code edits.
 
@@ -62,9 +63,9 @@ Daily datasets cover **19 assets**, updated through **2026-08-29**.
 - **Shared `core/` package** — I/O, features, metrics, signals used by meta + projection
 - **CI smoke** — GitHub Actions unit tests + projection CLI on `main`
 - **August multi-model paths** — Streamlit tab **Model compare** + `POST /api/v1/paths/compare` + CLI `scripts/august_multi_model_paths.py`
+- **Android on-device engines** — Kotlin Volatility + Paths (bundled OHLCV); FastAPI optional only
 - **Native desktop (Win/Linux)** — PySide6 shell, tray, installers with desktop icons (`packaging/`)
-- **Android companion APK** — Kotlin Compose + WorkManager/notifications (`packaging/android/`)
-- **Dev-linked production** — installed app uses live git checkout (`pip install -e .`)
+- **Dev-linked production** — installed desktop app uses live git checkout (`pip install -e .`)
 - **Volatility event radar** — prob/timing of ±N% moves (`services/volatility_events.py`, tab **Volatility radar**)
 - **Decision gate (2026-08-29)** — no new model classes for accuracy; ops = data refresh + retrain current stack (see `Documents/KB.md`)
 - **Cursor skills & agents** — `.cursor/skills/` and `.cursor/agents/` for AI-assisted workflows

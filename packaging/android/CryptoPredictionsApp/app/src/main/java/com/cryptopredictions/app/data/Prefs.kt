@@ -25,8 +25,14 @@ class Prefs(context: Context) {
         get() = sp.getString(KEY_ASSET, "ETHUSD") ?: "ETHUSD"
         set(v) = sp.edit().putString(KEY_ASSET, v).apply()
 
+    /** ondevice (default) | remote */
+    var computeMode: String
+        get() = sp.getString(KEY_MODE, "ondevice") ?: "ondevice"
+        set(v) = sp.edit().putString(KEY_MODE, v).apply()
+
     companion object {
         private const val KEY_API = "api_base"
         private const val KEY_ASSET = "watch_asset"
+        private const val KEY_MODE = "compute_mode"
     }
 }

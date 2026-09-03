@@ -1,52 +1,41 @@
-# CryptoPredictions Android companion
+# CryptoPredictions Android — on-device first
 
-Native **Kotlin + Jetpack Compose** client (Material 3) — not a WebView wrapper.
+## Why not “FastAPI-only APK”? (quality-gate correction)
 
-## Capabilities (Android-specific)
+A thin Retrofit client around FastAPI **failed** the product requirement:
+*majority of functions inside the APK with Android-native systems*.
+
+| Constraint | Implication |
+|------------|-------------|
+| Desktop stack is Python (sklearn / Prophet / pandas) | Cannot ship unmodified inside ART without Chaquopy/BeeWare (heavy, fragile) |
+| Volatility radar + path compare | **Pure math on OHLCV** → portable to Kotlin |
+| RF recursive / Prophet long-horizon | Still Python-heavy → **optional remote**, not the default |
+
+**Decision (2026-09-03):** APK is **local-first**. On-device Kotlin engines are the primary path. FastAPI is an optional bridge for heavy models only.
+
+## On-device capabilities (no network)
 
 | Feature | Implementation |
 |---------|----------------|
-| Material 3 UI | Compose screens: Assets, Volatility radar, API status |
-| Push-style alerts | `NotificationChannel` + local notification after forecast |
-| Background check | `WorkManager` periodic volatility probe (when API reachable) |
-| Share | `Intent.ACTION_SEND` of forecast JSON summary |
-| Back / lifecycle | Compose Navigation + `Lifecycle` aware ViewModels |
-| Secure prefs | EncryptedSharedPreferences for API base URL |
-| Network | OkHttp + Retrofit against FastAPI (`/api/v1/...`) |
+| Volatility event radar | `engine/VolatilityEngine.kt` (port of `services/volatility_events.py`) |
+| August path compare | `engine/PathCompareEngine.kt` (Naive / EWMA / LinReg 1-step) |
+| Bundled OHLCV | `assets/ohlcv/*.csv` (last ~900 daily bars, 6 majors) |
+| Notifications | `NotificationChannel` + `WorkManager` **on-device** probe |
+| Share | `Intent.ACTION_SEND` |
+| Secure prefs | EncryptedSharedPreferences (mode + optional API URL) |
 
-## Dev-linked mode
+## Optional remote
 
-The APK does **not** embed the Python ML stack. In development:
-
-1. Host machine runs live API: `cryptopredictions api --host 0.0.0.0 --port 8000`
-2. Android emulator: base URL `http://10.0.2.2:8000`
-3. Physical device: base URL `http://<LAN-IP>:8000` (same Wi-Fi)
-4. USB: `adb reverse tcp:8000 tcp:8000` then `http://127.0.0.1:8000`
-
-Code changes on the host repo are available immediately through the API (same `dev-linked` contract as desktop).
+Settings → Compute mode **Remote API** for host-side RF/Prophet when the PC runs `cryptopredictions api`.
 
 ## Build APK
 
-Requirements: JDK 17+, Android SDK 34, Gradle wrapper (included).
-
-```bash
-cd packaging/android/CryptoPredictionsApp
-./gradlew assembleDebug          # Linux/macOS
-gradlew.bat assembleDebug        # Windows
+```powershell
+# refresh bundled CSVs from repo data/
+python scripts/sync_android_ohlcv.py
+.\packaging\android\build_apk.ps1
 ```
 
-APK output:
+Requires JDK 17 + Android SDK. First run may need `gradle wrapper` (see `build_apk.*`).
 
-`app/build/outputs/apk/debug/app-debug.apk`
-
-Release (unsigned template):
-
-```bash
-./gradlew assembleRelease
-```
-
-## Install on device
-
-```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
+APK: `app/build/outputs/apk/debug/app-debug.apk`
