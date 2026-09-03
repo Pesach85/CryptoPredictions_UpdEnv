@@ -1,51 +1,80 @@
 # Knowledge Base - CryptoPredictions
 
-## Current State (2026-09-02) — read this first
+## Current State (2026-09-03) — read this first
 
 > Chronological entries below are an audit log. Prefer this front-matter for architecture and truth.
 
 ### Scope
 - Predictive experimentation and software validation on crypto time series.
 - Outputs are **simulation only — not investment advice**.
+- Native **Windows / Linux desktop** + **Android companion APK** (dev-linked to live repo).
 
-### Architecture (two stacks)
+### Architecture (three layers)
 
-| Stack | Entry points | Role |
+| Layer | Entry points | Role |
 |-------|--------------|------|
-| **Legacy Hydra** | `train.py`, `backtester.py`, `models/`, `data_loader/`, `factory/` | Multi-model train + classic backtest |
-| **Product / meta** | `meta_historical_test.py`, `services/`, `app_projection.py`, `api/main.py` | Leakage-safe RF validation, projections, what-if, FastAPI, data refresh |
+| **Legacy Hydra** | `train.py`, `backtester.py`, `models/` | Multi-model train + classic backtest |
+| **Product / meta** | `services/`, `app_projection.py`, `api/main.py` | Projections, volatility radar, FastAPI |
+| **Native apps** | `cryptopredictions` package, `packaging/` | Qt desktop, XDG/Win installers, Android Compose |
 
-Product stack shares `core/` with services; Hydra still has parallel feature/metrics paths (optional later unification).
-
-### Data
-- Daily CSVs: **19 assets**, last bar **2026-08-29** (Yahoo-first refresh).
-- Earlier KB claims of end=`2026-04-15` or Bitmex-only `2023-02-17` are **superseded**.
-
-### Profiles (`config/asset_profiles.json`)
-- Explicit: XBT/LTC (30, close); ETH/ADA/BCH (14, close); SOL (14, focused); BNB (14, focused); DOGE/AVAX (14, close).
-- Coverage: **9/19**; others default (30, close). Meta CLI: `--use-profiles`.
-
-### Decision gate (2026-08-29) — **CLOSED: no new model classes for accuracy**
-Evidence from August multi-model paths + Aug-15 coherence + historical n_estimators A/B:
-- **Do not** add LSTM/GRU/NeuralProphet/etc. expecting higher multi-day accuracy on OHLCV-only data.
-- **Do** keep the stack as-is and **refresh/retrain on new bars** (ops cadence).
-- Full rationale: section **2026-08-29 Decision Gate — Models vs Data** below.
+### Packaging mode — **dev-linked production** (decision 2026-09-03)
+- Installers write config with `mode=dev-linked` + `repo_root` → shortcuts set `CRYPTOPREDICTIONS_ROOT` / `PYTHONPATH`.
+- `pip install -e .[desktop]` — **code edits are live in the installed app** without reinstall.
+- Frozen PyInstaller/Briefcase bundles **deferred** until a release freeze (would otherwise drift from research codebase).
+- Android APK is native Kotlin (not WebView); ML stays on host API during dev.
 
 ### Shipped vs deferred
 
 | Item | Status |
 |------|--------|
-| Projection Lab + what-if + Model compare + **Volatility radar** | Shipped |
-| FastAPI (`/paths/compare`, `/volatility/forecast`) | Shipped |
-| Prophet long-horizon / scenario BT / data refresh | Shipped |
-| `core/` + CI smoke | Shipped |
-| **New model families for accuracy uplift** | **Closed — not justified** |
-| Full Hydra↔meta feature unification | Deferred (hygiene only) |
-| Multi-obj WF profile recalibration | Deferred (low ROI vs data cadence) |
-| Non-price features (macro/on-chain) | Research track — not opened |
+| Projection Lab + Model compare + Volatility radar | Shipped |
+| FastAPI (+ `/volatility/forecast`) | Shipped |
+| Native Qt desktop shell (Win/Linux) | **Shipped 2026-09-03** |
+| Win/Linux install + uninstall + desktop icons | **Shipped 2026-09-03** |
+| Android Kotlin Compose companion + APK recipe | **Shipped 2026-09-03** |
+| Frozen offline single-file EXE/AppImage | Deferred |
+| New model families for accuracy | **Closed** |
 
 ### Next Best Decision
-Weekly data refresh; after impulses (e.g. Aug-19 +20% cluster) run **Volatility radar** on ETH/BTC and log output — simulation only.
+On a Linux box run `bash packaging/linux/install.sh` and verify `.desktop` + `notify-send`; on Android SDK host run `packaging/android/build_apk.ps1` / `.sh` to produce `app-debug.apk`.
+
+## 2026-09-03 Native packaging (shipped)
+
+### Requirements answered
+1. Common Win/Linux/Android software with install/uninstall, taskbar/menu, desktop shortcuts — **yes**.
+2. Dev phase: installed "production" sees live codebase — **yes** (`dev-linked`).
+3. Linux-native (not web-only) — Qt shell + XDG + optional `systemd --user` API unit + `notify-send`.
+4. Android-native APK (not web-only) — Compose UI, notifications, WorkManager, Share, EncryptedSharedPreferences.
+
+### Problems encountered + solutions
+| Problem | Solution |
+|---------|----------|
+| PowerShell `ConvertTo-Json` + UTF-8 BOM broke `json.loads` | `utf-8-sig` loader + `scripts/write_install_config.py` |
+| Em-dash in `install.ps1` corrupted parser | ASCII-only installer scripts |
+| PNG not ideal for Windows `.lnk` icons | `scripts/generate_ico.py` multi-size ICO |
+| Embedding Streamlit as "the app" fails elite gate | Native Qt for primary UX; Streamlit optional secondary |
+| Full Python ML inside APK impractical | Companion APK + live FastAPI (`10.0.2.2` / LAN / `adb reverse`) |
+
+### Install commands
+```powershell
+# Windows
+.\packaging\windows\install.ps1
+.\packaging\windows\uninstall.ps1
+```
+```bash
+# Linux
+bash packaging/linux/install.sh
+bash packaging/linux/uninstall.sh
+```
+```bash
+# Android APK (needs Android SDK + Gradle)
+packaging/android/build_apk.sh   # or build_apk.ps1
+```
+
+### Validation (2026-09-03)
+- `pytest tests/test_packaging.py tests/test_core.py` — 12 passed (projection_smoke deselected in local batch).
+- Windows install created Desktop + Start Menu shortcuts + `LocalAppData/CryptoPredictions/config.json` with `repo_root`.
+- `RuntimeHub.from_config` resolves live repo.
 
 ## 2026-09-02 Volatility Event Radar (shipped)
 

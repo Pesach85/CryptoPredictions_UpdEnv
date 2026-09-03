@@ -30,3 +30,18 @@ outputs/
 # OS
 Thumbs.db
 .DS_Store
+
+# Packaging / editable install metadata
+*.egg-info/
+cryptopredictions.egg-info/
+
+# Packaging / Android build artifacts
+packaging/android/**/build/
+packaging/android/**/.gradle/
+packaging/android/**/local.properties
+packaging/android/**/*.apk
+packaging/android/**/*.aab
+*.iml
+
+# Generated local install state (never commit)
+# (config lives under user AppData / XDG — not in repo)

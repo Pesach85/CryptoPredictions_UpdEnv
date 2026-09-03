@@ -36,6 +36,10 @@ jobs:
         env:
           PYTHONPATH: .
         run: python scripts/volatility_forecast.py ETHUSD --threshold 10
+      - name: Packaging path tests
+        env:
+          PYTHONPATH: .
+        run: pytest -q tests/test_packaging.py
       - name: Refresh status
         env:
           PYTHONPATH: .

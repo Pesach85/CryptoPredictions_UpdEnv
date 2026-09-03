@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cryptopredictions"
+version = "1.1.0"
+description = "CryptoPredictions — research toolbox with native desktop and Android companion"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "CryptoPredictions contributors" }]
+dependencies = [
+  "pandas>=1.5",
+  "numpy>=1.24",
+  "scikit-learn>=1.1",
+  "requests>=2.28",
+  "fastapi>=0.104",
+  "uvicorn[standard]>=0.24",
+  "streamlit>=1.28",
+  "joblib>=1.2",
+  "matplotlib>=3.7",
+  "PySide6>=6.6",
+]
+
+[project.optional-dependencies]
+desktop = ["PySide6>=6.6"]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+cryptopredictions = "cryptopredictions.__main__:main"
+cryptopredictions-desktop = "cryptopredictions.desktop_shell:run_desktop"
+
+[tool.setuptools.packages.find]
+include = ["cryptopredictions*"]
+
+[tool.setuptools.package-data]
+cryptopredictions = ["py.typed"]

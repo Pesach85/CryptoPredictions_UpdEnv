@@ -20,14 +20,26 @@ git clone https://github.com/Pesach85/CryptoPredictions_UpdEnv.git
 cd CryptoPredictions_UpdEnv
 python -m venv .venv
 .venv\Scripts\activate        # Windows
-pip install -r requirements.txt
+pip install -e ".[desktop]"   # editable = live codebase in installed app
 ```
+
+### Native desktop install (dev-linked)
+
+| Platform | Install | Uninstall |
+|----------|---------|-----------|
+| Windows | `.\packaging\windows\install.ps1` | `.\packaging\windows\uninstall.ps1` |
+| Linux | `bash packaging/linux/install.sh` | `bash packaging/linux/uninstall.sh` |
+| Android APK | `packaging/android/build_apk.ps1` (see `packaging/android/README.md`) | uninstall via Android settings |
+
+Shortcuts launch the **live repo** (`CRYPTOPREDICTIONS_ROOT`) — no reinstall after code edits.
 
 | What you want | Command |
 |---------------|---------|
-| Projection Lab (UI) | `streamlit run app_projection.py` (tab **Model compare**) |
+| Native desktop shell | `cryptopredictions desktop` / Start Menu / `.desktop` |
+| Projection Lab (Streamlit) | `streamlit run app_projection.py` (also from desktop shell) |
 | Forward projection CLI | `python project_forward.py --asset ETHUSD --horizon 30` |
 | Multi-model path compare | `python scripts/august_multi_model_paths.py ETHUSD` · `POST /api/v1/paths/compare` |
+| Volatility radar | Desktop tab / Streamlit tab / `POST /api/v1/volatility/forecast` |
 | Long-horizon fan chart (Prophet) | via API `POST /api/v1/project/long` or Projection Lab tab |
 | Scenario backtest | `python scenario_backtest.py --asset ETHUSD --horizon 30` |
 | Refresh market data | `python scripts/refresh_market_data.py --status` |
@@ -50,6 +62,9 @@ Daily datasets cover **19 assets**, updated through **2026-08-29**.
 - **Shared `core/` package** — I/O, features, metrics, signals used by meta + projection
 - **CI smoke** — GitHub Actions unit tests + projection CLI on `main`
 - **August multi-model paths** — Streamlit tab **Model compare** + `POST /api/v1/paths/compare` + CLI `scripts/august_multi_model_paths.py`
+- **Native desktop (Win/Linux)** — PySide6 shell, tray, installers with desktop icons (`packaging/`)
+- **Android companion APK** — Kotlin Compose + WorkManager/notifications (`packaging/android/`)
+- **Dev-linked production** — installed app uses live git checkout (`pip install -e .`)
 - **Volatility event radar** — prob/timing of ±N% moves (`services/volatility_events.py`, tab **Volatility radar**)
 - **Decision gate (2026-08-29)** — no new model classes for accuracy; ops = data refresh + retrain current stack (see `Documents/KB.md`)
 - **Cursor skills & agents** — `.cursor/skills/` and `.cursor/agents/` for AI-assisted workflows

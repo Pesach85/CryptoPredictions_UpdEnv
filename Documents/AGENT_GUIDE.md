@@ -12,14 +12,14 @@ Do not provide investment advice.
 - Market data collection: `.cursor/agents/market-data-researcher.agent.md`
 
 ## Projection & What-If Interface
-- Streamlit UI: `streamlit run app_projection.py` (includes **Model compare** tab)
+- Native desktop: `cryptopredictions desktop` (after `packaging/*/install.*`)
+- Streamlit UI: `streamlit run app_projection.py` (includes **Model compare** + **Volatility radar**)
 - CLI: `python project_forward.py --asset ETHUSD --horizon 30`
 - Multi-model paths: `python scripts/august_multi_model_paths.py ETHUSD --fast`
-- FastAPI: `uvicorn api.main:app --reload --port 8000` · `POST /api/v1/paths/compare`
-- Long horizon CLI: Prophet 90–365d via `LongHorizonService`
-- Scenario backtest: `python scenario_backtest.py --asset ETHUSD --horizon 30`
-- Data refresh: `python scripts/refresh_market_data.py --asset ETHUSD`
-- Service API: `services/projection.py`, `services/long_horizon.py`, `services/scenario_backtest.py`, `services/data_refresh.py`, `services/multi_model_paths.py`
+- Volatility: `python scripts/volatility_forecast.py ETHUSD`
+- FastAPI: `uvicorn api.main:app --reload --port 8000` · `POST /api/v1/paths/compare` · `/volatility/forecast`
+- Android: `packaging/android/` companion APK (points at live API)
+- Packaging docs: `packaging/README.md`
 - Per-asset profiles: `config/asset_profiles.json`
 - Skills: `.cursor/skills/crypto-predictions-projection/`, `.cursor/skills/stealth-browser-market-data/`
 
