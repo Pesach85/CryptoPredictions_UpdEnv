@@ -5,11 +5,16 @@ Use this repository to evaluate predictive potential of models on crypto dataset
 Do not provide investment advice.
 
 ## Recommended Agent Entry
-- Workspace instructions: `.github/copilot-instructions.md`
+- Workspace rules: `.cursor/rules/00-orchestrator.mdc` (skills-first + Decision Gates)
+- Skills: `.cursor/skills/` — `agent-orchestration`, `elite-quality-gate`, `crypto-predictions-projection`, `stealth-browser-market-data`
 - Custom agent: `.github/agents/quant-research-gate.agent.md`
 - Prompt shortcut: `.github/prompts/predictive-research-gate.prompt.md`
 - Projection scenarios: `.cursor/agents/projection-scenario-analyst.agent.md`
 - Market data collection: `.cursor/agents/market-data-researcher.agent.md`
+
+## Skill sources (adapted in-repo)
+- Orchestration behaviours adapted from [fable-orchestration](https://github.com/per-simmons/fable-orchestration) (architect/delegate/verify; model-agnostic for Cursor).
+- Skills-first role pattern adapted from [chrisboden/cursor-skills](https://github.com/chrisboden/cursor-skills) (without importing their MCP/docx stack — Cursor already loads `.cursor/skills/`).
 
 ## Projection & What-If Interface
 - Native desktop: `cryptopredictions desktop` (after `packaging/*/install.*`)

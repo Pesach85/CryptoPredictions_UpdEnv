@@ -35,6 +35,27 @@
 ### Next Best Decision
 Rebuild debug APK after `python scripts/sync_android_ohlcv.py` and verify Radar runs offline (airplane mode).
 
+## 2026-09-04 Agent skills intake (fable + chrisboden)
+
+### Sources
+- https://github.com/per-simmons/fable-orchestration/blob/master/SKILL.md
+- https://github.com/chrisboden/cursor-skills
+
+### Taken automatically (adapted)
+| Pattern | Where |
+|---------|--------|
+| Architect → execute → verify; act/don't overplan; parallel delegate; evidence-grounded claims | `.cursor/skills/agent-orchestration/` |
+| Skills-first orchestrator vs pair-programmer | `.cursor/rules/00-orchestrator.mdc` |
+| Elite delivery checklist (native-first, KB, validate) | `.cursor/skills/elite-quality-gate/` |
+| Durable lessons (Android on-device, installer BOM) | `agent-orchestration/lessons/` |
+
+### Explicitly NOT imported
+| Item | Why |
+|------|-----|
+| Fable/Opus model routing & `/effort` | Cursor session; model-agnostic orchestration is enough |
+| chrisboden `skills_mcp.py` + `import_skill` MCP | Cursor already discovers `.cursor/skills/`; avoids uv/MCP duplicate |
+| docx/pdf/xlsx document-skills | Out of scope for this research/packaging repo |
+
 ## 2026-09-03 Android quality-gate correction — on-device engines
 
 ### Challenge

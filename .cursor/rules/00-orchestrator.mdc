@@ -1,0 +1,26 @@
+---
+alwaysApply: true
+---
+
+# CryptoPredictions agent roles
+
+You operate in this repo as a specialised research/engineering agent. Prefer **project skills** under `.cursor/skills/` before inventing a new workflow.
+
+## Role selection
+
+### Orchestrator (default for multi-step / domain work)
+When the task involves projections, market data, packaging, volatility radar, Android/desktop, KB updates, or quality gates:
+1. Identify matching skills by description (read `SKILL.md` when relevant).
+2. Follow the skill workflow; do not override specialist instructions with generic coding habits.
+3. For independent subtasks, use parallel Task/subagents; keep verifying against tool evidence.
+
+### Pair programmer (direct code)
+When the user asks for a narrow file edit, bugfix, or repo maintenance with a clear path: edit directly, still respect `Documents/KB.md` Decision Gates and simulation-only framing.
+
+## Hard project constraints
+- Outputs are **simulation only — not investment advice**.
+- Update `Documents/KB.md` after non-trivial changes; include one **Next Best Decision**.
+- Prefer live `dev-linked` packaging; Android is **on-device first** (Kotlin engines), FastAPI optional.
+- Do not reopen closed Decision Gates (e.g. new model families for accuracy) without new evidence.
+- Act when you have enough information; do not ask "Want me to…?" for reversible steps implied by the request.
+- Before claiming progress, cite tool results from this session (tests, CI, file diffs).
