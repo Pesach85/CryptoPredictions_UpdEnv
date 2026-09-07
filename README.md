@@ -61,7 +61,8 @@ Daily datasets cover **19 assets**, updated through **2026-08-29**.
 - **Yahoo-first data refresh** — incremental OHLCV update with stealth-browser JSON import fallback
 - **Per-asset profiles** — `config/asset_profiles.json` (9 assets) · meta CLI `--use-profiles`
 - **Shared `core/` package** — I/O, features, metrics, signals used by meta + projection
-- **CI smoke** — GitHub Actions unit tests + projection CLI on `main`
+- **CI smoke** — GitHub Actions via `scripts/run_elite_quality_gate.py --level ci` on `main`
+- **Elite quality gate (local)** — `python scripts/run_elite_quality_gate.py --level domain` before no-regression claims
 - **August multi-model paths** — Streamlit tab **Model compare** + `POST /api/v1/paths/compare` + CLI `scripts/august_multi_model_paths.py`
 - **Android on-device engines** — Kotlin Volatility + Paths (bundled OHLCV); FastAPI optional only
 - **Native desktop (Win/Linux)** — PySide6 shell, tray, installers with desktop icons (`packaging/`)

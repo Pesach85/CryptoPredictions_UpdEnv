@@ -31,16 +31,26 @@ A change is not done until:
 
 Fail gate if “native app” is only a WebView/API shell without the majority of user-facing analytics on-device (Android) or in-process (desktop).
 
-## Validation commands (pick what applies)
+## One-command Verify (preferred)
+
+Agents and humans should run the shared gate before claiming no regressions:
 
 ```bash
-# Unit
-pytest -q tests/test_core.py tests/test_packaging.py -k "not projection_smoke"
+# Mirrors CI + domain CLIs (default)
+python scripts/run_elite_quality_gate.py --level domain
 
-# Domain
-python scripts/volatility_forecast.py ETHUSD --threshold 10
-python scripts/august_multi_model_paths.py ETHUSD --fast --no-persist
+# Fast unit-only
+python scripts/run_elite_quality_gate.py --level unit
 
+# Exact GitHub Actions smoke set
+python scripts/run_elite_quality_gate.py --level ci
+```
+
+Exit code 0 = pass. Use `--json` for machine-readable evidence.
+
+## Extra validation commands (pick when relevant)
+
+```bash
 # Packaging Windows
 powershell -File packaging/windows/install.ps1 -SkipPip
 

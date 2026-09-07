@@ -66,7 +66,7 @@ Avoid “max effort” loops that over-change the tree.
 
 1. Relevant skill under `.cursor/skills/` loaded?
 2. Parallelism possible?
-3. Verification command identified (`pytest`, CLI smoke, install script)?
+3. Verification command identified — default: `python scripts/run_elite_quality_gate.py --level domain`?
 4. KB / NBD update planned if non-trivial?
 5. Android on-device vs remote FastAPI default respected?
 

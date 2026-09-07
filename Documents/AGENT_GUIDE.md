@@ -37,9 +37,9 @@ Do not provide investment advice.
 6. Respect the 2026-08-29 Decision Gate: do **not** open new model-family accuracy projects without new features; prefer data refresh + retrain.
 
 ## Validation Minimum
-- Run static error checks or one executable baseline training run.
+- Prefer one-command Verify: `python scripts/run_elite_quality_gate.py --level domain` (mirrors CI + domain CLIs; exit 0 required before “no regression” claims).
 - Report metric outputs and limitations.
-- CI smoke (`.github/workflows/ci-smoke.yml`): `pytest tests/test_core.py`, `project_forward.py` smoke, `refresh_market_data.py --status`. Needs `PYTHONPATH=.`; refresh must not pull heavy meta deps (CoinGecko id resolve is in `core/market_ids.py`).
+- CI smoke (`.github/workflows/ci-smoke.yml`) runs the same suite as `--level ci`. Needs `PYTHONPATH=.`; refresh must not pull heavy meta deps (CoinGecko id resolve is in `core/market_ids.py`).
 
 ## Non-Investment Constraint
 All outputs must be framed as experimental predictive analysis and software validation.

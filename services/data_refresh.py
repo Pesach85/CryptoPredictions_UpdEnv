@@ -120,7 +120,7 @@ def refresh_asset_via_api(asset_symbol: str, backup: bool = True) -> dict[str, A
 
     # Attempt 2: CoinGecko close → synthetic OHLCV
     try:
-        from meta_historical_test import fetch_api_daily_close
+        from core.market_fetch import fetch_api_daily_close
 
         coin_id = resolve_coingecko_coin_id(symbol)
         close_series = fetch_api_daily_close(coin_id, start.to_pydatetime(), end)

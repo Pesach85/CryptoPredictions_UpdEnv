@@ -80,6 +80,7 @@ Saved under `outputs/projections/<ASSET>_<timestamp>/`:
 3. Update `Documents/KB.md` after non-trivial projection changes.
 4. Prefer asset profiles over manual overrides unless A/B testing.
 5. Include a `Next Best Decision` with one testable action.
+6. After non-trivial projection/code edits, run `python scripts/run_elite_quality_gate.py --level domain` (orchestration Verify + elite-quality-gate).
 
 ## Extension roadmap
 

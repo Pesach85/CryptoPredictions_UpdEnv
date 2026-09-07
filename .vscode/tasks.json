@@ -51,6 +51,18 @@
       "command": "uvicorn",
       "args": ["api.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
       "problemMatcher": []
+    },
+    {
+      "label": "elite-quality-gate",
+      "type": "shell",
+      "command": "python",
+      "args": ["scripts/run_elite_quality_gate.py", "--level", "domain"],
+      "options": {
+        "env": {
+          "PYTHONPATH": "."
+        }
+      },
+      "problemMatcher": []
     }
   ]
 }

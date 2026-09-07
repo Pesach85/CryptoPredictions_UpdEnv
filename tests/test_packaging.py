@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from cryptopredictions.paths import (
@@ -58,3 +62,33 @@ def test_icon_generator(tmp_path):
     mod.write_png(out, 64)
     assert out.stat().st_size > 100
     assert out.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_elite_quality_gate_script_levels():
+    """Gate script is the Verify entry point for agent-orchestration / elite-quality-gate."""
+    root = discover_repo_root()
+    path = root / "scripts" / "run_elite_quality_gate.py"
+    assert path.is_file()
+    env = {**os.environ, "PYTHONPATH": str(root)}
+    unit = subprocess.run(
+        [sys.executable, str(path), "--level", "unit", "--list-steps"],
+        cwd=str(root),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    ci = subprocess.run(
+        [sys.executable, str(path), "--level", "ci", "--list-steps"],
+        cwd=str(root),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    unit_steps = set(json.loads(unit.stdout)["steps"])
+    ci_steps = set(json.loads(ci.stdout)["steps"])
+    assert unit_steps == {"unit_core", "unit_packaging"}
+    assert "cli_projection" in ci_steps
+    assert "refresh_status" in ci_steps
+    assert unit_steps.issubset(ci_steps)

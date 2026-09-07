@@ -27,6 +27,7 @@ from core.market_ids import (
     sanitize_symbol,
     symbol_base,
 )
+from core.market_fetch import coin_id_to_symbol, fetch_api_daily_close
 from core.metrics_ts import all_scores, build_naive_prediction, directional_scores, regression_scores
 
 
@@ -54,35 +55,6 @@ def fetch_trending_symbols() -> list[str]:
     response.raise_for_status()
     payload = response.json()
     return [str(item.get("symbol", "")).upper() for item in payload.get("data", []) if item.get("symbol")]
-
-
-def coin_id_to_symbol(coin_id: str) -> str:
-    id_to_symbol = {
-        "bitcoin": "BTC",
-        "ethereum": "ETH",
-        "solana": "SOL",
-        "binancecoin": "BNB",
-        "cardano": "ADA",
-        "ripple": "XRP",
-        "dogecoin": "DOGE",
-        "polkadot": "DOT",
-        "litecoin": "LTC",
-        "tron": "TRX",
-        "avalanche-2": "AVAX",
-        "chainlink": "LINK",
-        "near": "NEAR",
-        "apecoin": "APE",
-        "crypto-com-chain": "CRO",
-        "axie-infinity": "AXS",
-        "eos": "EOS",
-        "bitcoin-cash": "BCH",
-        "pepe": "PEPE",
-        "aptos": "APT",
-    }
-    result = id_to_symbol.get(coin_id)
-    if result is None:
-        raise ValueError(f"Unknown coin_id: {coin_id}. Add it to id_to_symbol mapping.")
-    return result
 
 
 def fetch_api_daily_ohlcv(coin_id: str, start_dt: datetime, end_dt: datetime) -> pd.DataFrame:

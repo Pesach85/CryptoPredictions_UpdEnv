@@ -1,6 +1,6 @@
 # Knowledge Base - CryptoPredictions
 
-## Current State (2026-09-03) — read this first
+## Current State (2026-09-07) — read this first
 
 > Chronological entries below are an audit log. Prefer this front-matter for architecture and truth.
 
@@ -17,6 +17,16 @@
 | **Product / meta** | `services/`, `app_projection.py`, `api/main.py` | Projections, volatility radar, FastAPI |
 | **Native apps** | `cryptopredictions` package, `packaging/` | Qt desktop, XDG/Win installers, Android Compose |
 
+### Agent control plane (skills → evidence)
+| Skill / rule | Role for project goals |
+|--------------|------------------------|
+| `00-orchestrator.mdc` | Skills-first + closed Decision Gates (no model-zoo reopen) |
+| `agent-orchestration` | Research → architect → execute → **Verify**; parallelise; no over-refactor |
+| `elite-quality-gate` | Native-first delivery bar; KB + tool proof before ship |
+| `crypto-predictions-projection` / `stealth-browser-market-data` | Domain workflows |
+
+**Verify entry point (2026-09-07):** `python scripts/run_elite_quality_gate.py --level domain` (CI uses `--level ci`).
+
 ### Packaging mode — **dev-linked production** (decision 2026-09-03)
 - Desktop installers write `mode=dev-linked` + `repo_root` → live Python codebase.
 - **Android correction (same day):** APK is **on-device first** (Kotlin engines + bundled OHLCV). FastAPI is optional for heavy Python models only — a Retrofit-only companion failed the quality gate.
@@ -29,11 +39,58 @@
 | Win/Linux install + uninstall + desktop icons | Shipped |
 | Android **on-device** Volatility + Paths engines | **Shipped 2026-09-03 (gate fix)** |
 | Android optional remote FastAPI | Optional secondary |
+| Elite quality gate CLI + CI wiring | **Shipped 2026-09-07** |
 | Frozen offline single-file EXE/AppImage | Deferred |
 | Full sklearn/Prophet inside APK (Chaquopy) | Deferred (complexity / size) |
 
 ### Next Best Decision
-Rebuild debug APK after `python scripts/sync_android_ohlcv.py` and verify Radar runs offline (airplane mode).
+Rebuild debug APK (`packaging/android/build_apk.ps1`) and verify Radar offline after OHLCV asset sync to 2026-09-07.
+
+## 2026-09-07 Weekly OHLCV refresh + CoinGecko fetch restore
+
+### Evidence
+- Refresh `--all`: **17/19** Yahoo OHLCV (+9 bars → end **2026-09-07**); APT/PEPE Yahoo empty.
+- Root cause of CoinGecko fallback fail: `fetch_api_daily_close` removed in core refactor but still imported from `meta_historical_test`.
+- Fix: restored in `core/market_fetch.py`; `services/data_refresh.py` + `meta_historical_test.py` import from core (no matplotlib in refresh path).
+- `--retry-failed`: APT + PEPE updated via `coingecko_close_synthetic_ohlcv`.
+- Status: **19/19** `gap_days=0`, `needs_refresh=false`.
+- Domain gate: **6/6 PASS** (`run_elite_quality_gate.py --level domain`).
+- Android assets resynced: `python scripts/sync_android_ohlcv.py` (6 majors, 900d each).
+
+Simulation only — not investment advice.
+
+### Next Best Decision
+Redeploy Windows desktop install (`packaging/windows/install.ps1 -SkipPip`) so Start Menu shortcuts keep pointing at the live repo after this pull.
+
+## 2026-09-07 Deterministic skill-leverage analysis → gate CLI
+
+### Question
+How do the new orchestration / elite-quality skills improve project goals (efficiency + validated results + no regressions), and what can ship in-codebase immediately?
+
+### Verdict (deterministic)
+Skills alone cut agent waste; **wiring Verify into one script + CI** is the leverage that turns process into regression protection. Model expansion remains closed (Decision Gate 2026-08-29); ops = data refresh + retrain + gate.
+
+### How skills map to project goals
+
+| Goal | Skill mechanism | Measurable effect |
+|------|-----------------|-------------------|
+| Efficiency | Architect ≤15% tokens; skills-first; parallel Task for independent work | Fewer re-litigations of closed gates; less serial over-research |
+| Validated results | Elite gate: behaviour match + tool proof + KB + simulation framing | Claims require exit-0 evidence, not narrative |
+| No regressions | Shared `run_elite_quality_gate.py` = local == CI step set | Drift between agent “smoke” and Actions reduced to zero for `--level ci` |
+| Product quality | Native-first platform gate (desktop Qt / Android on-device) | Prevents FastAPI-shell / WebView-only “native” regressions |
+
+### Explicitly still out of scope (unchanged)
+- Fable/Opus model routing, chrisboden MCP import stack, docx/pdf skills
+- New DL model families for accuracy without new features
+
+### Code shipped this session
+1. `scripts/run_elite_quality_gate.py` — levels `unit` / `ci` / `domain` / `full`
+2. CI `ci-smoke.yml` collapsed to one gate step (`--level ci`)
+3. Cross-links in orchestration / elite / projection skills + `AGENT_GUIDE` + VS Code task `elite-quality-gate`
+4. Unit test `test_elite_quality_gate_script_levels`
+
+### Next Best Decision
+Redeploy Windows desktop install (`packaging/windows/install.ps1 -SkipPip`) so Start Menu shortcuts keep pointing at the live repo after this pull.
 
 ## 2026-09-04 Agent skills intake (fable + chrisboden)
 
