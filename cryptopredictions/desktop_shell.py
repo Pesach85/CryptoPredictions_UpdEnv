@@ -29,12 +29,15 @@ def _require_qt():
             QApplication,
             QComboBox,
             QFormLayout,
+            QGridLayout,
             QGroupBox,
             QHBoxLayout,
             QLabel,
             QMainWindow,
             QMessageBox,
+            QProgressBar,
             QPushButton,
+            QScrollArea,
             QSpinBox,
             QStatusBar,
             QSystemTrayIcon,
@@ -56,12 +59,15 @@ def _require_qt():
         "QApplication": QApplication,
         "QComboBox": QComboBox,
         "QFormLayout": QFormLayout,
+        "QGridLayout": QGridLayout,
         "QGroupBox": QGroupBox,
         "QHBoxLayout": QHBoxLayout,
         "QLabel": QLabel,
         "QMainWindow": QMainWindow,
         "QMessageBox": QMessageBox,
+        "QProgressBar": QProgressBar,
         "QPushButton": QPushButton,
+        "QScrollArea": QScrollArea,
         "QSpinBox": QSpinBox,
         "QStatusBar": QStatusBar,
         "QSystemTrayIcon": QSystemTrayIcon,
@@ -142,9 +148,10 @@ class MainWindow:
 
     def _tab_volatility(self) -> Any:
         qt = self.qt
-        w = qt["QWidget"]()
-        form = qt["QFormLayout"](w)
+        outer = qt["QWidget"]()
+        root = qt["QVBoxLayout"](outer)
 
+        form_row = qt["QHBoxLayout"]()
         self.asset_combo = qt["QComboBox"]()
         try:
             ensure_sys_path(self.hub.repo_root)
@@ -164,15 +171,136 @@ class MainWindow:
 
         run_btn = qt["QPushButton"]("Analyze volatility event")
         run_btn.clicked.connect(self._run_volatility)
+        form_row.addWidget(qt["QLabel"]("Asset"))
+        form_row.addWidget(self.asset_combo)
+        form_row.addWidget(qt["QLabel"]("Threshold"))
+        form_row.addWidget(self.threshold_spin)
+        form_row.addWidget(run_btn)
+        root.addLayout(form_row)
+
+        scroll = qt["QScrollArea"]()
+        scroll.setWidgetResizable(True)
+        panel = qt["QWidget"]()
+        self._vol_layout = qt["QVBoxLayout"](panel)
+
+        self.vol_disclaimer = qt["QLabel"](
+            "Simulation only — not investment advice. Uso educativo / gamificato."
+        )
+        self.vol_disclaimer.setWordWrap(True)
+        self.vol_disclaimer.setStyleSheet("color: #b71c1c; font-weight: 600;")
+        self._vol_layout.addWidget(self.vol_disclaimer)
+
+        self.vol_hero = qt["QGroupBox"]("Cosa significa")
+        hero_l = qt["QVBoxLayout"](self.vol_hero)
+        self.vol_hero_body = qt["QLabel"]("Esegui un'analisi per vedere la spiegazione.")
+        self.vol_hero_body.setWordWrap(True)
+        hero_l.addWidget(self.vol_hero_body)
+        self._vol_layout.addWidget(self.vol_hero)
+
+        self.vol_pattern = qt["QGroupBox"]("Pattern card")
+        pat_l = qt["QVBoxLayout"](self.vol_pattern)
+        self.vol_pattern_title = qt["QLabel"]("—")
+        self.vol_pattern_title.setStyleSheet("font-size: 15px; font-weight: 700;")
+        self.vol_pattern_body = qt["QLabel"]("")
+        self.vol_pattern_body.setWordWrap(True)
+        pat_l.addWidget(self.vol_pattern_title)
+        pat_l.addWidget(self.vol_pattern_body)
+        self._vol_layout.addWidget(self.vol_pattern)
+
+        self.vol_probs = qt["QGroupBox"]("Probabilità evento (±soglia)")
+        probs_l = qt["QVBoxLayout"](self.vol_probs)
+        self.vol_p7 = qt["QProgressBar"]()
+        self.vol_p14 = qt["QProgressBar"]()
+        self.vol_p21 = qt["QProgressBar"]()
+        for bar, name in (
+            (self.vol_p7, "7d"),
+            (self.vol_p14, "14d"),
+            (self.vol_p21, "21d"),
+        ):
+            bar.setRange(0, 100)
+            bar.setFormat(f"{name}: %p%")
+            probs_l.addWidget(bar)
+        self._vol_layout.addWidget(self.vol_probs)
+
+        self.vol_scenarios = qt["QGroupBox"]("Bias e scenari")
+        sc_l = qt["QVBoxLayout"](self.vol_scenarios)
+        self.vol_bias_label = qt["QLabel"]("Bias: —")
+        self.vol_sc_up = qt["QProgressBar"]()
+        self.vol_sc_dn = qt["QProgressBar"]()
+        self.vol_sc_neu = qt["QProgressBar"]()
+        for bar, name, color in (
+            (self.vol_sc_up, "Rialzo", "#2e7d32"),
+            (self.vol_sc_dn, "Ribasso", "#c62828"),
+            (self.vol_sc_neu, "Neutro", "#757575"),
+        ):
+            bar.setRange(0, 100)
+            bar.setFormat(f"{name}: %p%")
+            bar.setStyleSheet(
+                f"QProgressBar::chunk {{ background-color: {color}; }}"
+            )
+            sc_l.addWidget(bar)
+        sc_l.addWidget(self.vol_bias_label)
+        self._vol_layout.addWidget(self.vol_scenarios)
+
+        self.vol_window = qt["QGroupBox"]("Finestra temporale")
+        win_l = qt["QVBoxLayout"](self.vol_window)
+        self.vol_window_label = qt["QLabel"]("—")
+        self.vol_window_label.setWordWrap(True)
+        win_l.addWidget(self.vol_window_label)
+        self._vol_layout.addWidget(self.vol_window)
+
+        self.vol_heat = qt["QGroupBox"]("Heatmap fattori (intensità)")
+        self.vol_heat_grid = qt["QGridLayout"](self.vol_heat)
+        self._vol_heat_cells: list[Any] = []
+        self._vol_layout.addWidget(self.vol_heat)
 
         self.vol_out = qt["QTextEdit"]()
         self.vol_out.setReadOnly(True)
+        self.vol_out.setMaximumHeight(160)
+        self.vol_json_box = qt["QGroupBox"]("JSON grezzo (debug)")
+        json_l = qt["QVBoxLayout"](self.vol_json_box)
+        json_l.addWidget(self.vol_out)
+        self.vol_json_box.setCheckable(True)
+        self.vol_json_box.setChecked(False)
+        self.vol_out.setVisible(False)
+        self.vol_json_box.toggled.connect(self.vol_out.setVisible)
+        self._vol_layout.addWidget(self.vol_json_box)
+        self._vol_layout.addStretch(1)
 
-        form.addRow("Asset", self.asset_combo)
-        form.addRow("Threshold", self.threshold_spin)
-        form.addRow(run_btn)
-        form.addRow(self.vol_out)
-        return w
+        scroll.setWidget(panel)
+        root.addWidget(scroll)
+        return outer
+
+    def _set_heat_cells(self, cells: list[Any]) -> None:
+        qt = self.qt
+        while self._vol_heat_cells:
+            lab = self._vol_heat_cells.pop()
+            self.vol_heat_grid.removeWidget(lab)
+            lab.deleteLater()
+        for i, cell in enumerate(cells):
+            intensity = float(cell.get("intensity", 0))
+            # cool → warm → hot
+            if intensity < 0.33:
+                bg = f"rgb({40 + int(intensity * 80)}, {110 + int(intensity * 40)}, 140)"
+            elif intensity < 0.66:
+                bg = f"rgb(220, {140 + int((intensity - 0.33) * 80)}, 30)"
+            else:
+                bg = f"rgb(220, {60 - int((intensity - 0.66) * 40)}, 25)"
+            val = cell.get("value")
+            val_s = "—" if val is None else f"{val}"
+            text = (
+                f"<b>{cell.get('label_it', cell.get('key'))}</b><br>"
+                f"{val_s}<br><i>{cell.get('chip_it', '')}</i>"
+            )
+            lab = qt["QLabel"](text)
+            lab.setAlignment(self.qt["Qt"].AlignCenter)
+            lab.setWordWrap(True)
+            lab.setMinimumSize(110, 72)
+            lab.setStyleSheet(
+                f"QLabel {{ background:{bg}; color:white; border-radius:8px; padding:6px; }}"
+            )
+            self.vol_heat_grid.addWidget(lab, i // 4, i % 4)
+            self._vol_heat_cells.append(lab)
 
     def _tab_services(self) -> Any:
         qt = self.qt
@@ -269,10 +397,43 @@ class MainWindow:
         thr = float(self.threshold_spin.value())
         try:
             from services.volatility_events import VolatilityEventService
+            from services.volatility_ux import ux_from_forecast_obj
 
             result = VolatilityEventService().forecast(asset, threshold_pct=thr)
             payload = result.to_dict()
+            ux = ux_from_forecast_obj(result).to_dict()
+
+            self.vol_hero_body.setText(ux["hero_body_it"])
+            pat = ux["pattern"]
+            arrow = {"up": "↑", "down": "↓", "breakout": "↗", "side": "↔"}.get(
+                pat.get("arrow"), "·"
+            )
+            self.vol_pattern_title.setText(f"{arrow}  {pat.get('title_it', '')}")
+            self.vol_pattern_body.setText(
+                f"{pat.get('primary_it', '')}\n\n"
+                f"{pat.get('secondary_it', '')}\n\n"
+                f"<b>Proiezione educativa:</b> {pat.get('projection_it', '')}\n"
+                f"<i>{pat.get('gamified_hint_it', '')}</i>"
+            )
+            self.vol_pattern_body.setTextFormat(self.qt["Qt"].RichText)
+
+            hp = ux["horizon_probs_pct"]
+            self.vol_p7.setValue(int(round(hp.get("7d", 0))))
+            self.vol_p14.setValue(int(round(hp.get("14d", 0))))
+            self.vol_p21.setValue(int(round(hp.get("21d", 0))))
+
+            sp = ux["scenario_probs_pct"]
+            self.vol_sc_up.setValue(int(round(sp.get("up", 0))))
+            self.vol_sc_dn.setValue(int(round(sp.get("down", 0))))
+            self.vol_sc_neu.setValue(int(round(sp.get("neutral", 0))))
+            self.vol_bias_label.setText(
+                f"Bias: {ux.get('direction_bias_it')} · confidenza {ux.get('confidence_it')} · "
+                f"analoghi {payload.get('analog_count', 0)}"
+            )
+            self.vol_window_label.setText(ux.get("window_summary_it", ""))
+            self._set_heat_cells(ux.get("factor_cells") or [])
             self.vol_out.setPlainText(json.dumps(payload, indent=2))
+
             window = payload.get("most_probable_window", "")
             self._log(f"{asset}: P14={payload['probabilities']['14d_pct']}% · {window}")
             self._linux_notify(
@@ -281,6 +442,7 @@ class MainWindow:
             )
         except Exception as exc:
             self.vol_out.setPlainText(traceback.format_exc())
+            self.vol_json_box.setChecked(True)
             self._error(str(exc))
 
     def _refresh_status(self) -> None:

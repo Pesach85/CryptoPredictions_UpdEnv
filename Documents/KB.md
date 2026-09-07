@@ -42,11 +42,31 @@
 | Elite quality gate CLI + CI wiring | **Shipped 2026-09-07** |
 | Android debug APK rebuild + device install (v1.1.0) | **Shipped 2026-09-07 (elite gate)** |
 | Android IT-locale Analyze crash fix | **Shipped 2026-09-07** |
+| Volatility radar UX (heatmap + pattern cards + scenario probs) Android/Desktop/Streamlit | **Shipped 2026-09-07 (v1.1.1)** |
 | Frozen offline single-file EXE/AppImage | Deferred |
 | Full sklearn/Prophet inside APK (Chaquopy) | Deferred (complexity / size) |
+| Tick-level order-flow / ATAS footprints | **Out of scope** (daily OHLCV → parameter intensity grids only) |
 
 ### Next Best Decision
-Re-open Radar on device, pick ETHUSD, tap Analyze — confirm ON-DEVICE forecast (no `"1,130"` parse error); optionally re-check airplane mode.
+On device (APK 1.1.1): Radar → Analyze ETHUSD — confirm hero “Cosa significa”, factor heatmap, pattern card, and P7/P14/P21 bars (not plain text). Optionally mirror-check desktop Volatility tab.
+
+## 2026-09-07 Volatility radar UX — heatmap + pattern cards
+
+### Challenge
+PO asked for high-understanding volatility event UX (Android + desktop + Lab): footprint-like heatmaps, pattern cheat-sheets, scenario probabilities, gamified educational framing — without inventing tick order-flow from daily OHLCV.
+
+### Solution
+- Shared mapping: `services/volatility_ux.py` + Kotlin `VolatilityUx.kt`
+- Android: `VolatilityResultPanel.kt` (hero, probs, bias/scenarios, window timeline, factor heat grid, pattern card, disclaimer)
+- Desktop Qt: structured group boxes + QProgressBar + coloured factor grid; JSON collapsed
+- Streamlit Lab tab: Italian narrative + progress bars + styled factor dataframe
+- APK versionCode **3** / versionName **1.1.1**
+- Lesson: `agent-orchestration/lessons/volatility-ux-parameter-heatmaps.md`
+
+Simulation only — not investment advice.
+
+### Next Best Decision
+Device smoke: Analyze → visual panel; if OK, no further radar UX until user feedback.
 
 ## 2026-09-07 Android locale crash — volatility Analyze
 

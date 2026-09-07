@@ -99,3 +99,21 @@ def test_volatility_event_forecast_smoke():
         "elevated_volatility",
         "neutral_range",
     )
+
+
+def test_volatility_ux_mapping():
+    from services.volatility_events import VolatilityEventService
+    from services.volatility_ux import FACTOR_ORDER, ux_from_forecast_obj
+
+    result = VolatilityEventService().forecast("ETHUSD", threshold_pct=10.0)
+    ux = ux_from_forecast_obj(result)
+    d = ux.to_dict()
+    assert d["hero_title_it"] == "Cosa significa"
+    assert "Simulation only" in d["disclaimer"]
+    assert d["pattern"]["title_it"]
+    assert len(d["factor_cells"]) == len(FACTOR_ORDER)
+    assert all(0.0 <= c["intensity"] <= 1.0 for c in d["factor_cells"])
+    assert set(d["horizon_probs_pct"]) >= {"7d", "14d", "21d"}
+    assert set(d["scenario_probs_pct"]) >= {"up", "down", "neutral"}
+    total = sum(d["scenario_probs_pct"].values())
+    assert 95.0 <= total <= 105.0

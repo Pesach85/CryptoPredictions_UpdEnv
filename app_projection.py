@@ -394,36 +394,83 @@ def main():
         elif vf.asset_symbol != asset:
             st.warning(f"Ultima analisi: {vf.asset_symbol}. Riesegui per {asset}.")
         else:
+            from services.volatility_ux import ux_from_forecast_obj
+
             vd = vf.to_dict()
+            ux = ux_from_forecast_obj(vf).to_dict()
+            st.caption(ux["disclaimer"])
+
+            st.markdown(f"### {ux['hero_title_it']}")
+            st.write(ux["hero_body_it"])
+
+            pat = ux["pattern"]
+            arrow = {"up": "↑", "down": "↓", "breakout": "↗", "side": "↔"}.get(pat.get("arrow"), "·")
+            st.markdown(f"#### {arrow} {pat.get('title_it', '')}")
+            st.write(pat.get("primary_it", ""))
+            st.write(pat.get("secondary_it", ""))
+            st.info(pat.get("projection_it", ""))
+            st.caption(pat.get("gamified_hint_it", ""))
+
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Prezzo attuale", f"${vd['current_price']:,.2f}")
             c2.metric("Prob. 14 giorni", f"{vd['probabilities']['14d_pct']:.0f}%")
             c3.metric("Magnitudine attesa", f"~{vd['expected_move_pct']:.1f}%")
-            dir_label = {"up": "Rialzo", "down": "Ribasso", "neutral": "Neutro"}[vd["direction_bias"]]
-            c4.metric("Bias direzione", dir_label)
+            c4.metric("Bias direzione", ux["direction_bias_it"])
 
-            st.markdown(f"**Regime:** `{vd['regime_label']}` · **Confidenza:** {vd['confidence']}")
+            st.markdown(
+                f"**Regime:** `{vd['regime_label']}` · **Confidenza:** {ux['confidence_it']} · "
+                f"analoghi {vd['analog_count']}"
+            )
             if vf.metadata.get("post_rally_context"):
                 st.info(vf.metadata["post_rally_context"])
 
-            p7, p14, p21 = st.columns(3)
-            p7.metric("Prob. 7d", f"{vd['probabilities']['7d_pct']:.0f}%")
-            p14.metric("Prob. 14d", f"{vd['probabilities']['14d_pct']:.0f}%")
-            p21.metric("Prob. 21d", f"{vd['probabilities']['21d_pct']:.0f}%")
+            st.markdown("**Probabilità evento (±soglia)**")
+            hp = ux["horizon_probs_pct"]
+            st.progress(min(1.0, hp["7d"] / 100.0), text=f"7 giorni: {hp['7d']:.0f}%")
+            st.progress(min(1.0, hp["14d"] / 100.0), text=f"14 giorni: {hp['14d']:.0f}%")
+            st.progress(min(1.0, hp["21d"] / 100.0), text=f"21 giorni: {hp['21d']:.0f}%")
 
-            st.markdown("**Finestra piu probabile**")
-            st.write(vd["most_probable_window"])
-            st.caption(
-                f"Stima calendario: {vd['window_start_estimate']} - {vd['window_end_estimate']} · "
-                f"Analoghi storici: {vd['analog_count']}"
-            )
-
+            st.markdown("**Scenari educativi**")
+            sp = ux["scenario_probs_pct"]
+            st.progress(min(1.0, sp["up"] / 100.0), text=f"Rialzo: {sp['up']:.0f}%")
+            st.progress(min(1.0, sp["down"] / 100.0), text=f"Ribasso: {sp['down']:.0f}%")
+            st.progress(min(1.0, sp["neutral"] / 100.0), text=f"Neutro: {sp['neutral']:.0f}%")
             sc1, sc2 = st.columns(2)
-            sc1.metric("Scenario rialzo", f"+{vd['scenarios']['upside_pct']:.1f}%")
-            sc2.metric("Scenario ribasso", f"-{vd['scenarios']['downside_pct']:.1f}%")
-            st.caption(
-                f"Probabilita direzione rialzista: {vd['direction_up_prob_pct']:.0f}% · "
-                f"ribassista: {100 - vd['direction_up_prob_pct']:.0f}%"
+            sc1.metric("Scenario rialzo (magnitudine)", f"+{vd['scenarios']['upside_pct']:.1f}%")
+            sc2.metric("Scenario ribasso (magnitudine)", f"-{vd['scenarios']['downside_pct']:.1f}%")
+
+            st.markdown("**Finestra temporale**")
+            st.write(ux["window_summary_it"])
+
+            st.markdown("**Heatmap fattori (intensità)**")
+            import pandas as pd
+
+            heat_rows = []
+            for cell in ux["factor_cells"]:
+                heat_rows.append(
+                    {
+                        "Fattore": cell["label_it"],
+                        "Valore": cell["value"],
+                        "Intensità": cell["intensity"],
+                        "Chip": cell["chip_it"],
+                    }
+                )
+            heat_df = pd.DataFrame(heat_rows)
+
+            def _heat_style(row):
+                t = float(row["Intensità"] or 0)
+                if t < 0.33:
+                    bg = f"background-color: rgba(40, 120, 140, {0.35 + t})"
+                elif t < 0.66:
+                    bg = f"background-color: rgba(220, 160, 30, {0.4 + t * 0.3})"
+                else:
+                    bg = f"background-color: rgba(200, 40, 30, {0.45 + t * 0.3})"
+                return [bg] * len(row)
+
+            st.dataframe(
+                heat_df.style.apply(_heat_style, axis=1),
+                use_container_width=True,
+                hide_index=True,
             )
 
             if vf.metadata.get("regime_reasons"):
@@ -431,8 +478,8 @@ def main():
                 for reason in vf.metadata["regime_reasons"]:
                     st.markdown(f"- {reason}")
 
-            with st.expander("Dettaglio fattori numerici"):
-                st.json(vd["factors"])
+            with st.expander("JSON grezzo / fattori numerici"):
+                st.json(vd)
 
     if result is None:
         with tab_proj:

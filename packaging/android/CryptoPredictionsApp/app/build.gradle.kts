@@ -11,8 +11,8 @@ android {
         applicationId = "com.cryptopredictions.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.1.1"
         buildConfigField("String", "DEFAULT_API_BASE", "\"http://10.0.2.2:8000\"")
     }
 

@@ -103,7 +103,7 @@ fun VolatilityScreen(onShare: (String) -> Unit) {
     var forecast by remember { mutableStateOf<VolatilityEngine.Forecast?>(null) }
     var mode by remember { mutableStateOf(prefs.computeMode) } // ondevice | remote
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Engine: ${if (mode == "ondevice") "ON-DEVICE Kotlin (no FastAPI)" else "Remote FastAPI"}")
@@ -186,36 +186,7 @@ fun VolatilityScreen(onShare: (String) -> Unit) {
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         forecast?.let { r ->
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Engine: ${r.engine}", style = MaterialTheme.typography.labelMedium)
-                    Text("Regime: ${r.regimeLabel}", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "P7 / P14 / P21: ${"%.0f".format(r.probability7d * 100)} / " +
-                            "${"%.0f".format(r.probability14d * 100)} / ${"%.0f".format(r.probability21d * 100)}"
-                    )
-                    Text("Expected move: ~${"%.1f".format(r.expectedMovePct)}%")
-                    Text("Bias: ${r.directionBias}")
-                    Text("Window: ${r.mostProbableWindow}")
-                    Text("Confidence: ${r.confidence} · analogs: ${r.analogCount}")
-                    if (r.regimeReasons.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Factors:", style = MaterialTheme.typography.labelLarge)
-                        r.regimeReasons.forEach { Text("• $it") }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = {
-                        onShare(
-                            buildString {
-                                appendLine("CryptoPredictions (${r.engine}) — simulation only")
-                                appendLine("${r.assetSymbol} as-of ${r.asOfDate}")
-                                appendLine("P14=${"%.0f".format(r.probability14d * 100)}% bias=${r.directionBias}")
-                                appendLine("Window: ${r.mostProbableWindow}")
-                            }
-                        )
-                    }) { Text("Share") }
-                }
-            }
+            VolatilityResultPanel(forecast = r, onShare = onShare)
         }
         // keep mode in sync from settings via prefs re-read on recomposition tip:
         LaunchedEffect(Unit) { mode = prefs.computeMode }
@@ -234,7 +205,7 @@ fun PathsScreen() {
     var error by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<PathCompareEngine.SeriesResult?>(null) }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("On-device August path compare: Actual vs Naive / EWMA / LinReg 1-step.")
