@@ -36,7 +36,7 @@ Fail gate if “native app” is only a WebView/API shell without the majority o
 Agents and humans should run the shared gate before claiming no regressions:
 
 ```bash
-# Mirrors CI + domain CLIs (default)
+# Mirrors CI + domain CLIs + Android asset end-date check (default)
 python scripts/run_elite_quality_gate.py --level domain
 
 # Fast unit-only
