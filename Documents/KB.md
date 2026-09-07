@@ -56,11 +56,12 @@ Rebuild debug APK (`packaging/android/build_apk.ps1`) and verify Radar offline a
 - Status: **19/19** `gap_days=0`, `needs_refresh=false`.
 - Domain gate: **6/6 PASS** (`run_elite_quality_gate.py --level domain`).
 - Android assets resynced: `python scripts/sync_android_ohlcv.py` (6 majors, 900d each).
+- Windows deploy completed: `packaging/windows/install.ps1 -SkipPip` (dev-linked).
 
 Simulation only — not investment advice.
 
 ### Next Best Decision
-Redeploy Windows desktop install (`packaging/windows/install.ps1 -SkipPip`) so Start Menu shortcuts keep pointing at the live repo after this pull.
+Rebuild debug APK (`packaging/android/build_apk.ps1`) and verify Radar offline (airplane mode) on 2026-09-07 assets.
 
 ## 2026-09-07 Deterministic skill-leverage analysis → gate CLI
 
@@ -88,9 +89,10 @@ Skills alone cut agent waste; **wiring Verify into one script + CI** is the leve
 2. CI `ci-smoke.yml` collapsed to one gate step (`--level ci`)
 3. Cross-links in orchestration / elite / projection skills + `AGENT_GUIDE` + VS Code task `elite-quality-gate`
 4. Unit test `test_elite_quality_gate_script_levels`
+5. `core/market_fetch.py` restore + weekly refresh to 2026-09-07 + Windows redeploy
 
 ### Next Best Decision
-Redeploy Windows desktop install (`packaging/windows/install.ps1 -SkipPip`) so Start Menu shortcuts keep pointing at the live repo after this pull.
+Rebuild debug APK (`packaging/android/build_apk.ps1`) and verify Radar offline (airplane mode) on 2026-09-07 assets.
 
 ## 2026-09-04 Agent skills intake (fable + chrisboden)
 
