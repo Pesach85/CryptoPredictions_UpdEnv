@@ -40,11 +40,53 @@
 | Android **on-device** Volatility + Paths engines | **Shipped 2026-09-03 (gate fix)** |
 | Android optional remote FastAPI | Optional secondary |
 | Elite quality gate CLI + CI wiring | **Shipped 2026-09-07** |
+| Android debug APK rebuild + device install (v1.1.0) | **Shipped 2026-09-07 (elite gate)** |
 | Frozen offline single-file EXE/AppImage | Deferred |
 | Full sklearn/Prophet inside APK (Chaquopy) | Deferred (complexity / size) |
 
 ### Next Best Decision
-Rebuild debug APK (`packaging/android/build_apk.ps1`) and verify Radar offline after OHLCV asset sync to 2026-09-07.
+On the installed Motorola device: enable airplane mode, open Radar for ETHUSD, confirm ON-DEVICE engine returns a forecast without FastAPI (then disable airplane mode).
+
+## 2026-09-07 Elite quality gate — deep analysis
+
+### Scope
+Full elite gate across data / Python Verify / desktop / Android after skill-wiring + weekly refresh.
+
+### Evidence matrix (tool-backed)
+
+| Surface | Result | Evidence |
+|---------|--------|----------|
+| Domain Verify | **PASS 6/6→7** | `run_elite_quality_gate.py --level domain` (+ android assets end≥2026-09-07) |
+| Data freshness | **PASS** | 19/19 `gap_days=0`, end **2026-09-07** |
+| CI (`origin`) | **PASS** | `Pesach85/CryptoPredictions_UpdEnv` ci-smoke success on `819d1dc` |
+| Desktop native | **PASS** | Qt shell importable; config `mode=dev-linked`, `auto_start_streamlit=false`, PySide6 6.11.2 |
+| Android on-device code | **PASS** | `Prefs.computeMode` default `ondevice`; `VolatilityEngine` / `PathCompareEngine`; Compose UI |
+| Android build | **PASS (fixed)** | Missing `gradle.properties` AndroidX + wrong `Modifier` import/params blocked compile; fixed; `assembleDebug` OK |
+| Android install | **PASS** | `adb install -r` → device `ZY22HFWMGV` (motorola edge 40); launched `MainActivity`; versionName **1.1.0** |
+| Airplane-mode UX | **PENDING** | Device airplane_mode_on=0 at install time; offline path proven in code, not yet UI-proved |
+
+### Problems found + solutions
+| Problem | Solution |
+|---------|----------|
+| `ANDROID_HOME` unset; SDK at `D:\Android\Sdk` | `build_apk.ps1` auto-detects SDK + writes `local.properties` |
+| No Gradle wrapper committed | Generated `gradlew` + wrapper jar/properties (commit) |
+| `android.useAndroidX` missing | `gradle.properties` |
+| Compose `Modifier` import/param casing | Fixed `MainActivity.kt` / `CpAppRoot.kt` |
+| Elite gate ignored Android assets | Added `android_assets_end` step to `--level domain/full` |
+
+### Residual (accepted, not FAIL)
+- No Android unit/`androidTest` suite yet
+- RF/Prophet remain optional remote
+- Paths window still hardcoded Aug-2026 in Kotlin (valid while assets cover that window)
+- `gh` default repo resolves to `upstream` fork; CI truth is **origin** `Pesach85/CryptoPredictions_UpdEnv`
+
+### Elite verdict
+**CONDITIONAL PASS → PASS on build/install once airplane-mode Radar check is done.** Software/data/desktop/Android compile+install meet elite native-first bar; remaining NBD is device offline UX confirmation.
+
+Simulation only — not investment advice.
+
+### Next Best Decision
+On device `ZY22HFWMGV`: airplane mode ON → Radar ETHUSD → confirm engine label **ON-DEVICE Kotlin** and non-empty P7/P14/P21 → airplane OFF.
 
 ## 2026-09-07 Weekly OHLCV refresh + CoinGecko fetch restore
 

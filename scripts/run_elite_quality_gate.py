@@ -77,6 +77,26 @@ STEPS: tuple[tuple[str, list[str], frozenset[str]], ...] = (
         [sys.executable, "scripts/refresh_market_data.py", "--status"],
         frozenset({"ci", "domain", "full"}),
     ),
+    (
+        "android_assets_end",
+        [
+            sys.executable,
+            "-c",
+            (
+                "from pathlib import Path\n"
+                "root=Path('packaging/android/CryptoPredictionsApp/app/src/main/assets/ohlcv')\n"
+                "assert root.is_dir(), root\n"
+                "ends=[]\n"
+                "for p in sorted(root.glob('*.csv')):\n"
+                "    lines=p.read_text(encoding='utf-8').strip().splitlines()\n"
+                "    assert len(lines)>=2, p\n"
+                "    ends.append((p.name, lines[-1].split(',')[0][:10]))\n"
+                "print({'assets':len(ends),'ends':ends})\n"
+                "assert all(e[1]>='2026-09-07' for e in ends), ends\n"
+            ),
+        ],
+        frozenset({"domain", "full"}),
+    ),
 )
 
 

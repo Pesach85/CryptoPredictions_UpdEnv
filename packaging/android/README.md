@@ -33,9 +33,11 @@ Settings → Compute mode **Remote API** for host-side RF/Prophet when the PC ru
 ```powershell
 # refresh bundled CSVs from repo data/
 python scripts/sync_android_ohlcv.py
+# SDK auto-detected from ANDROID_HOME or D:\Android\Sdk / %LOCALAPPDATA%\Android\Sdk
 .\packaging\android\build_apk.ps1
 ```
 
-Requires JDK 17 + Android SDK. First run may need `gradle wrapper` (see `build_apk.*`).
+Requires **JDK 17+** + Android SDK (`compileSdk 34`). Gradle wrapper is committed under `CryptoPredictionsApp/`; `local.properties` is generated and gitignored.
 
+Debug APK: `CryptoPredictionsApp/app/build/outputs/apk/debug/app-debug.apk`
 APK: `app/build/outputs/apk/debug/app-debug.apk`

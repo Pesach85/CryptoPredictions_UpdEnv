@@ -32,7 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier.Modifier
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.cryptopredictions.app.data.ApiFactory
@@ -73,13 +73,13 @@ fun CpAppRoot(onShare: (String) -> Unit) {
             }
         }
     ) { pad ->
-        Column(Modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp)) {
+        Column(modifier = Modifier.padding(pad).fillMaxSize().padding(16.dp)) {
             Text(
                 "Simulation only — not investment advice.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error
             )
-            Spacer(Modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             when (tab) {
                 0 -> VolatilityScreen(onShare = onShare)
                 1 -> PathsScreen()
@@ -103,8 +103,7 @@ fun VolatilityScreen(onShare: (String) -> Unit) {
     var forecast by remember { mutableStateOf<VolatilityEngine.Forecast?>(null) }
     var mode by remember { mutableStateOf(prefs.computeMode) } // ondevice | remote
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Engine: ${if (mode == "ondevice") "ON-DEVICE Kotlin (no FastAPI)" else "Remote FastAPI"}")
@@ -187,8 +186,8 @@ fun VolatilityScreen(onShare: (String) -> Unit) {
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
         forecast?.let { r ->
-            Card(Modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Engine: ${r.engine}", style = MaterialTheme.typography.labelMedium)
                     Text("Regime: ${r.regimeLabel}", style = MaterialTheme.typography.titleMedium)
                     Text(
@@ -200,11 +199,11 @@ fun VolatilityScreen(onShare: (String) -> Unit) {
                     Text("Window: ${r.mostProbableWindow}")
                     Text("Confidence: ${r.confidence} · analogs: ${r.analogCount}")
                     if (r.regimeReasons.isNotEmpty()) {
-                        Spacer(Modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text("Factors:", style = MaterialTheme.typography.labelLarge)
                         r.regimeReasons.forEach { Text("• $it") }
                     }
-                    Spacer(Modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = {
                         onShare(
                             buildString {
@@ -235,8 +234,7 @@ fun PathsScreen() {
     var error by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<PathCompareEngine.SeriesResult?>(null) }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("On-device August path compare: Actual vs Naive / EWMA / LinReg 1-step.")
@@ -277,8 +275,8 @@ fun PathsScreen() {
         if (loading) CircularProgressIndicator()
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         result?.let { r ->
-            Card(Modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("${r.dates.first()} → ${r.dates.last()} · n=${r.dates.size}")
                     Text("Actual end: ${"%.2f".format(r.actual.last())}")
                     r.metrics.forEach { (k, v) ->
@@ -340,3 +338,4 @@ fun SettingsScreen() {
         Text("Bundled assets: ${CsvLoader.listBundled(ctx).joinToString()}")
     }
 }
+

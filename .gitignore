@@ -43,5 +43,8 @@ packaging/android/**/*.apk
 packaging/android/**/*.aab
 *.iml
 
+# Local tool caches
+.tmp/
+
 # Generated local install state (never commit)
 # (config lives under user AppData / XDG — not in repo)
