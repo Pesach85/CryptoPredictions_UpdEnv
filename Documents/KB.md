@@ -41,11 +41,28 @@
 | Android optional remote FastAPI | Optional secondary |
 | Elite quality gate CLI + CI wiring | **Shipped 2026-09-07** |
 | Android debug APK rebuild + device install (v1.1.0) | **Shipped 2026-09-07 (elite gate)** |
+| Android IT-locale Analyze crash fix | **Shipped 2026-09-07** |
 | Frozen offline single-file EXE/AppImage | Deferred |
 | Full sklearn/Prophet inside APK (Chaquopy) | Deferred (complexity / size) |
 
 ### Next Best Decision
-On the installed Motorola device: enable airplane mode, open Radar for ETHUSD, confirm ON-DEVICE engine returns a forecast without FastAPI (then disable airplane mode).
+Re-open Radar on device, pick ETHUSD, tap Analyze — confirm ON-DEVICE forecast (no `"1,130"` parse error); optionally re-check airplane mode.
+
+## 2026-09-07 Android locale crash — volatility Analyze
+
+### Challenge
+Device (IT locale): Analyze volatility event → `For Input string: "1,130"`.
+
+### Root cause
+`VolatilityEngine.rd()` did `String.format("%.Nf", v).toDouble()`. Italian locale emits `,` as decimal separator → `NumberFormatException`.
+
+### Fix
+Locale-independent rounding via `round(v * 10^d) / 10^d` (no string round-trip). Rebuild + `adb install -r` debug APK. Lesson: `agent-orchestration/lessons/android-locale-format-todouble.md`.
+
+Simulation only — not investment advice.
+
+### Next Best Decision
+Re-open Radar, pick ETHUSD, tap Analyze — expect ON-DEVICE forecast without parse error.
 
 ## 2026-09-07 Elite quality gate — deep analysis
 
@@ -86,7 +103,7 @@ Full elite gate across data / Python Verify / desktop / Android after skill-wiri
 Simulation only — not investment advice.
 
 ### Next Best Decision
-On device `ZY22HFWMGV`: airplane mode ON → Radar ETHUSD → confirm engine label **ON-DEVICE Kotlin** and non-empty P7/P14/P21 → airplane OFF.
+Re-open Radar, pick ETHUSD, tap Analyze — expect ON-DEVICE forecast without parse error.
 
 ## 2026-09-07 Weekly OHLCV refresh + CoinGecko fetch restore
 

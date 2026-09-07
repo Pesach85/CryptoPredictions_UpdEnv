@@ -272,8 +272,12 @@ object VolatilityEngine {
             else -> "low"
         }
 
-        fun rd(v: Double, d: Int = 3): Double? =
-            if (v.isNaN()) null else String.format("%.${d}f", v).toDouble()
+        fun rd(v: Double, d: Int = 3): Double? {
+            if (v.isNaN()) return null
+            // Locale-independent rounding (IT locale made String.format use ',' → toDouble crash).
+            val factor = Math.pow(10.0, d.toDouble())
+            return kotlin.math.round(v * factor) / factor
+        }
 
         return Forecast(
             assetSymbol = asset,
